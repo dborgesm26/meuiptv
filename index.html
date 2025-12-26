@@ -3,84 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini IPTV - VLC Direct</title>
+    <title>Gemini IPTV - Anti-Lock</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.compiled.js"></script>
     <style>
         :root { --accent: #ffc107; --bg: #000; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; overflow: hidden; }
-        .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
         .page.active { display: flex; }
         
-        /* Barra Amarela */
-        .sync-box { width: 85%; display: none; margin-top: 25px; }
-        .p-bg { width: 100%; height: 12px; background: #222; border-radius: 10px; overflow: hidden; }
-        .p-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.1s; }
+        /* Barra Amarela de Progresso */
+        .sync-area { width: 85%; display: none; margin-top: 20px; }
+        .p-bg { width: 100%; height: 10px; background: #222; border-radius: 5px; overflow: hidden; }
+        .p-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; }
 
         .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; }
-        .cat-card { background: #111; border: 2px solid #222; border-radius: 15px; padding: 40px 10px; cursor: pointer; font-weight: bold; }
+        .cat-card { background: #111; border: 2px solid #222; border-radius: 12px; padding: 35px 5px; text-align: center; cursor: pointer; }
 
-        /* Lista de Canais Full Screen */
-        #p-list { display: none; background: #000; height: 100vh; overflow-y: auto; padding-top: 70px; }
-        .header { position: fixed; top: 0; width: 100%; background: #111; padding: 20px; border-bottom: 2px solid var(--accent); z-index: 1000; }
-        .chan-item { padding: 20px; border-bottom: 1px solid #111; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
-        .vlc-btn { background: #ffc107; color: #000; padding: 8px 15px; border-radius: 8px; font-weight: bold; font-size: 13px; }
+        /* Player Profissional */
+        #video-container { width: 100%; height: 220px; background: #000; display: none; position: fixed; top: 0; z-index: 1000; border-bottom: 2px solid var(--accent); }
+        video { width: 100%; height: 100%; }
 
-        input { background: #111; border: 1px solid #333; color: white; padding: 15px; width: 85%; border-radius: 10px; margin-bottom: 15px; }
-        .btn-sync { background: var(--accent); border: none; padding: 18px; border-radius: 12px; font-weight: bold; width: 85%; }
+        .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0a0a0a; z-index: 3000; transition: 0.3s; overflow-y: auto; }
+        .sidebar.active { left: 0; }
+        .chan-item { padding: 18px; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
+
+        #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 65px; height: 65px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 30px; color: #000; z-index: 4000; }
+
+        input { background: #111; border: 1px solid #333; color: white; padding: 15px; width: 80%; border-radius: 10px; margin-bottom: 15px; }
+        .btn-sync { background: var(--accent); border: none; padding: 15px 30px; border-radius: 10px; font-weight: bold; width: 85%; }
     </style>
 </head>
 <body>
 
     <div id="p-sync" class="page active">
         <h1 style="color: var(--accent);">GEMINI IPTV</h1>
-        <p style="color: #666;">Sincronização com Player Externo</p>
-        <input type="text" id="url" placeholder="Link Olympus...">
-        <button class="btn-sync" onclick="iniciarSinc()">SINCRONIZAR AGORA</button>
-        <div class="sync-box" id="s-box">
+        <input type="text" id="url" placeholder="Cole seu link aqui...">
+        <button class="btn-sync" id="btn-s" onclick="iniciar()">SINCRONIZAR</button>
+        <div class="sync-area" id="s-area">
             <div class="p-bg"><div id="bar" class="p-fill"></div></div>
-            <p id="count" style="margin-top: 10px; color: var(--accent);">0 Canais</p>
+            <p id="txt" style="margin-top: 10px; color: var(--accent); font-weight: bold;">0 Canais</p>
         </div>
     </div>
 
     <div id="p-menu" class="page">
         <div class="cat-grid">
             <div class="cat-card" onclick="irCanais()">📺<br>CANAIS</div>
-            <div class="cat-card" onclick="alert('Brevemente')">🎬<br>FILMES</div>
-            <div class="cat-card" onclick="alert('Brevemente')">🍿<br>SÉRIES</div>
-            <div class="cat-card" onclick="location.reload()">🔄<br>LOGOUT</div>
+            <div class="cat-card" onclick="alert('Filmes em breve')">🎬<br>FILMES</div>
+            <div class="cat-card" onclick="alert('Séries em breve')">🍿<br>SÉRIES</div>
+            <div class="cat-card" onclick="location.reload()">🔄<br>SAIR</div>
         </div>
     </div>
 
-    <div id="p-list">
-        <div class="header">
-            <span onclick="voltar()" style="position: absolute; left: 20px; color: var(--accent); font-weight: bold;">⬅ VOLTAR</span>
-            <span>LISTA DE CANAIS</span>
-        </div>
+    <div id="video-container"><video id="video" controls autoplay></video></div>
+    <div id="fab" onclick="toggleSide()">☰</div>
+    <div id="side" class="sidebar">
+        <div style="padding: 25px; border-bottom: 1px solid #222; background: #000;"><h3 style="color: var(--accent); margin: 0;">LISTA</h3></div>
         <div id="list-body"></div>
     </div>
 
     <script>
         let canais = [];
+        let player = null;
 
-        async function iniciarSinc() {
+        async function iniciar() {
             const url = document.getElementById('url').value;
             if(!url) return;
-            document.getElementById('s-box').style.display = 'block';
+            document.getElementById('btn-s').style.display = 'none';
+            document.getElementById('s-area').style.display = 'block';
             const bar = document.getElementById('bar');
-            const txt = document.getElementById('count');
+            const txt = document.getElementById('txt');
 
             try {
                 const proxy = "https://api.allorigins.win/raw?url=";
                 const res = await fetch(proxy + encodeURIComponent(url));
                 const reader = res.body.getReader();
                 let decoder = new TextDecoder();
-                let full = '';
+                let fullText = '';
 
                 while(true) {
                     const {done, value} = await reader.read();
                     if(done || canais.length >= 800) break;
-                    full += decoder.decode(value, {stream: true});
-                    let lines = full.split('\n');
-                    full = lines.pop();
+                    fullText += decoder.decode(value, {stream: true});
+                    const lines = fullText.split('\n');
+                    fullText = lines.pop();
                     for(let i=0; i<lines.length; i++) {
                         if(lines[i].includes('#EXTINF:')) {
                             const nome = lines[i].split(',').pop().trim();
@@ -88,50 +93,57 @@
                             if(link && link.startsWith('http')) {
                                 canais.push({nome, link});
                                 bar.style.width = (canais.length / 8) + "%";
-                                txt.innerText = "Capturados: " + canais.length;
+                                txt.innerText = "Canais: " + canais.length;
                             }
                         }
                     }
                 }
                 setTimeout(() => {
-                    document.getElementById('p-sync').classList.remove('active');
-                    document.getElementById('p-menu').classList.add('active');
+                    document.getElementById('p-sync').style.display = 'none';
+                    document.getElementById('p-menu').style.display = 'flex';
                 }, 1000);
-            } catch(e) { txt.innerText = "Erro de conexão."; }
+            } catch(e) { txt.innerText = "Erro. Verifique as travas."; }
         }
 
-        function abrirVLC(url) {
-            // Este é o protocolo que "acorda" o VLC no Android
-            // Ele tenta abrir diretamente o Stream sem descarregar
-            const vlcIntent = "intent://" + url.replace(/^https?:\/\//, "") + "#Intent;scheme=http;package=org.videolan.vlc;S.title=Canal%20Gemini;end";
+        async function play(url) {
+            document.getElementById('video-container').style.display = 'block';
+            const video = document.getElementById('video');
             
-            // Tenta abrir o VLC diretamente
-            window.location.href = vlcIntent;
-            
-            // Caso o telemóvel não reconheça o protocolo Intent, ele usa o link direto
-            setTimeout(() => {
-                window.location.href = url;
-            }, 1000);
+            if (!player) {
+                shaka.polyfil.installAll();
+                player = new shaka.Player(video);
+            }
+
+            try {
+                // Configuração para aceitar o formato .ts da Olympus como HLS
+                player.configure({
+                    streaming: { bufferingGoal: 30, rebufferingGoal: 10 }
+                });
+                await player.load(url);
+                video.play();
+            } catch (e) {
+                console.error("Erro no Player:", e);
+                // Se o Shaka falhar, tentamos o fallback nativo
+                video.src = url;
+            }
         }
 
         function irCanais() {
-            document.getElementById('p-menu').classList.remove('active');
-            document.getElementById('p-list').style.display = 'block';
+            document.getElementById('p-menu').style.display = 'none';
+            document.getElementById('fab').style.display = 'flex';
             const body = document.getElementById('list-body');
             body.innerHTML = "";
             canais.forEach(c => {
-                const div = document.createElement('div');
-                div.className = 'chan-item';
-                div.onclick = () => abrirVLC(c.link);
-                div.innerHTML = `<span>📺 ${c.nome}</span> <span class="vlc-btn">ASSISTIR</span>`;
-                body.appendChild(div);
+                const item = document.createElement('div');
+                item.className = 'chan-item';
+                item.innerText = "📺 " + c.nome;
+                item.onclick = () => { play(c.link); toggleSide(); };
+                body.appendChild(item);
             });
+            toggleSide();
         }
 
-        function voltar() {
-            document.getElementById('p-list').style.display = 'none';
-            document.getElementById('p-menu').classList.add('active');
-        }
+        function toggleSide() { document.getElementById('side').classList.toggle('active'); }
     </script>
 </body>
 </html>
