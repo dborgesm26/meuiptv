@@ -22,16 +22,16 @@
 <body>
 
     <div id="loading-screen">
-        <h2 style="color: var(--primary);">Conectando à Olympus...</h2>
+        <h2 style="color: var(--primary);">Sincronizando com Olympus...</h2>
         <p id="contador" style="font-size: 40px; font-weight: bold;">0</p>
-        <p style="font-size: 12px; color: #888;">Removendo travas de conexão...</p>
+        <p style="font-size: 12px; color: #888;">Tentando conexão após Reset de Trava...</p>
     </div>
 
     <div class="app-container">
         <div class="player-section"><video id="main-player" class="video-js vjs-16-9 vjs-big-play-centered" controls playsinline></video></div>
         <div class="setup-bar">
             <input type="text" id="m3u-url" placeholder="Cole seu link get.php aqui...">
-            <button onclick="conectarServidor()">CARREGAR CANAIS</button>
+            <button onclick="conectarServidor()">FORÇAR CONEXÃO AGORA</button>
         </div>
         <main id="channel-list" class="channel-grid"></main>
     </div>
@@ -47,14 +47,16 @@
             document.getElementById('loading-screen').style.display = 'flex';
             const contDisplay = document.getElementById('contador');
 
-            // Usando AllOrigins para burlar o bloqueio de navegador
+            // AllOrigins como ponte de dados
             const proxy = "https://api.allorigins.win/raw?url=";
             
             try {
-                const res = await fetch(proxy + encodeURIComponent(url));
+                // Adicionamos um timestamp para evitar que o navegador use uma versão bloqueada do cache
+                const finalUrl = url + "&t=" + new Date().getTime();
+                const res = await fetch(proxy + encodeURIComponent(finalUrl));
                 const data = await res.text();
 
-                if(!data.includes("#EXTM3U")) throw new Error("BLOQUEIO");
+                if(!data.includes("#EXTM3U")) throw new Error("BLOQUEIO_PERSISTENTE");
 
                 const lines = data.split('\n');
                 const canais = [];
@@ -67,7 +69,7 @@
                         if(link && link.startsWith('http')) {
                             canais.push({ nome, url: link });
                             count++;
-                            if(count % 10 === 0) contDisplay.innerText = count;
+                            if(count % 20 === 0) contDisplay.innerText = count;
                         }
                     }
                 }
@@ -76,7 +78,7 @@
                 document.getElementById('loading-screen').style.display = 'none';
 
             } catch(e) {
-                alert("ERRO: O painel Olympus bloqueou a conexão. Verifique se desligou a Trava ASN e ISP no painel.");
+                alert("O servidor continua a recusar. Por favor, use a opção 'Resetar Trava de ASN/ISP/País' no seu painel e tente novamente em aba anónima.");
                 document.getElementById('loading-screen').style.display = 'none';
             }
         }
@@ -84,7 +86,7 @@
         function render(lista) {
             const container = document.getElementById('channel-list');
             container.innerHTML = "";
-            lista.slice(0, 900).forEach(c => {
+            lista.slice(0, 1000).forEach(c => {
                 const div = document.createElement('div');
                 div.className = 'card';
                 div.innerText = c.nome;
