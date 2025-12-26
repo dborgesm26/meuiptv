@@ -3,73 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPTV Manual Pro</title>
+    <title>Gemini IPTV - Local</title>
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
     <style>
-        body { background: #000; color: #fff; font-family: sans-serif; margin: 0; text-align: center; }
-        .player-container { position: sticky; top: 0; background: #000; z-index: 10; padding-bottom: 10px; border-bottom: 1px solid #222; }
-        .input-area { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
-        textarea { background: #111; color: #444; border: 1px solid #333; border-radius: 5px; height: 60px; font-size: 10px; }
-        button { padding: 12px; background: #ffc107; border: none; border-radius: 5px; font-weight: bold; color: #000; cursor: pointer; }
-        #status { color: #ffc107; padding: 10px; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px; }
-        .card { background: #111; padding: 10px; border-radius: 8px; border: 1px solid #222; font-size: 10px; height: 50px; display: flex; align-items: center; justify-content: center; }
+        :root { --primary: #ffc107; --bg: #000; }
+        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; text-align: center; }
+        .app-container { max-width: 500px; margin: 0 auto; }
+        .player-section { position: sticky; top: 0; z-index: 1000; background: #000; border-bottom: 2px solid #1a1a1a; }
+        .setup-bar { padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #111; }
+        .btn-file { background: #333; color: var(--primary); border: 2px dashed var(--primary); padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; display: block; }
+        #status { color: var(--primary); padding: 10px; font-weight: bold; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; }
+        .card { background: #111; border-radius: 10px; padding: 12px 5px; border: 1px solid #222; font-size: 10px; min-height: 50px; display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
-    <div class="player-container">
-        <video id="video-p" class="video-js vjs-16-9 vjs-big-play-centered" controls playsinline></video>
-        <div class="input-area">
-            <p style="font-size: 12px; margin: 0; color: #888;">Cole o conteúdo da lista M3U abaixo:</p>
-            <textarea id="conteudo-m3u" placeholder="Abra o seu link no navegador, copie o texto que aparecer e cole aqui..."></textarea>
-            <button onclick="processarManual()">ATIVAR CANAIS AGORA</button>
+    <div class="app-container">
+        <div class="player-section">
+            <video id="main-player" class="video-js vjs-16-9 vjs-big-play-centered" controls playsinline></video>
         </div>
-        <div id="status">Aguardando texto da lista...</div>
-    </div>
 
-    <div id="lista-canais" class="grid"></div>
+        <div class="setup-bar">
+            <label class="btn-file">
+                📁 CLIQUE AQUI PARA CARREGAR O ARQUIVO M3U
+                <input type="file" id="input-m3u" accept=".m3u,.php,.txt" style="display: none;" onchange="lerArquivo(this)">
+            </label>
+            <div id="status">Selecione a lista baixada</div>
+        </div>
+
+        <main id="channel-list" class="grid"></main>
+    </div>
 
     <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
     <script>
-        const player = videojs('video-p');
+        const player = videojs('main-player');
 
-        function processarManual() {
-            const texto = document.getElementById('conteudo-m3u').value;
-            const status = document.getElementById('status');
-            const listaDiv = document.getElementById('lista-canais');
+        function lerArquivo(input) {
+            const file = input.files[0];
+            if (!file) return;
 
-            if(!texto.includes("#EXTM3U")) {
-                alert("O texto colado não parece ser uma lista IPTV válida.");
-                return;
-            }
-
-            status.innerText = "⏳ A ler canais...";
-            listaDiv.innerHTML = "";
-
-            const linhas = texto.split('\n');
-            let total = 0;
-
-            for(let i = 0; i < linhas.length; i++) {
-                if(linhas[i].includes("#EXTINF:")) {
-                    const nome = linhas[i].split(',').pop().trim();
-                    const link = linhas[i+1]?.trim();
-
-                    if(link && link.startsWith("http")) {
-                        total++;
-                        const div = document.createElement('div');
-                        div.className = 'card';
-                        div.innerText = nome;
-                        div.onclick = () => {
-                            player.src({ src: link, type: 'application/x-mpegURL' });
-                            player.play();
-                            window.scrollTo(0,0);
-                        };
-                        listaDiv.appendChild(div);
+            const reader = new FileReader();
+            document.getElementById('status').innerText = "Processando arquivo...";
+            
+            reader.onload = function(e) {
+                const conteudo = e.target.result;
+                const linhas = conteudo.split('\n');
+                const canais = [];
+                
+                for (let i = 0; i < linhas.length; i++) {
+                    if (linhas[i].includes('#EXTINF:')) {
+                        const nome = linhas[i].split(',').pop().trim();
+                        let link = linhas[i+1]?.trim();
+                        if(link && link.startsWith('http')) {
+                            canais.push({ nome, url: link });
+                        }
                     }
                 }
-            }
-            status.innerText = "✅ " + total + " canais ativados!";
+                
+                exibirCanais(canais);
+            };
+            reader.readAsText(file);
+        }
+
+        function exibirCanais(lista) {
+            const container = document.getElementById('channel-list');
+            container.innerHTML = "";
+            document.getElementById('status').innerText = lista.length + " Canais Carregados!";
+            
+            lista.forEach(c => {
+                const div = document.createElement('div');
+                div.className = 'card';
+                div.innerText = c.nome;
+                div.onclick = () => {
+                    player.src({ src: c.url, type: 'application/x-mpegURL' });
+                    player.play();
+                    window.scrollTo({top: 0, behavior: 'smooth'});
+                };
+                container.appendChild(div);
+            });
         }
     </script>
 </body>
