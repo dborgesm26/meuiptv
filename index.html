@@ -1,65 +1,142 @@
-async function carregarLinkExterno() {
-    const url = document.getElementById('m3u-url').value.trim();
-    if(!url) return alert("Por favor, cole um link primeiro.");
-    
-    // Mostra um aviso visual de que está a trabalhar
-    const btn = document.querySelector('button');
-    btn.innerText = "⌛...";
-    
-    try {
-        // Tenta buscar os dados usando o Proxy AllOrigins
-        const res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(url));
-        const text = await res.text();
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gemini IPTV Pro</title>
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+    <style>
+        :root { --primary: #ffc107; --bg: #000; }
+        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; text-align: center; }
         
-        if(text.includes("#EXTM3U")) {
-            processarM3U(text);
-            alert("Sucesso! Canais carregados.");
-        } else {
-            alert("O link foi lido, mas não parece ser uma lista IPTV válida.");
+        /* NOVA TELA DE CARREGAMENTO PROFISSIONAL */
+        #loading-screen { 
+            position: fixed; inset: 0; background: rgba(0,0,0,0.95); 
+            z-index: 10000; display: none; flex-direction: column; 
+            align-items: center; justify-content: center; 
         }
-    } catch(e) {
-        alert("Erro Crítico: O servidor da sua lista bloqueou o acesso. Tente outro link.");
-    } finally {
-        btn.innerText = "CARREGAR";
-    }
-}
+        .loader-gold { 
+            width: 60px; height: 60px; border: 5px solid #222; 
+            border-top: 5px solid var(--primary); border-radius: 50%; 
+            animation: spin 1s linear infinite; 
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-function processarM3U(data) {
-    const lines = data.split('\n');
-    const novosCanais = [];
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
+        .app-container { max-width: 500px; margin: 0 auto; }
+        .player-section { position: sticky; top: 0; z-index: 1000; background: #000; }
+        .setup-bar { padding: 12px; display: flex; gap: 8px; }
+        input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 8px; }
+        button { background: var(--primary); border: none; padding: 10px 18px; border-radius: 8px; font-weight: bold; cursor: pointer; }
         
-        if (line.startsWith('#EXTINF:')) {
-            // Tenta extrair o nome do canal de forma mais inteligente
-            let nome = "Canal Sem Nome";
-            if (line.includes(',')) {
-                nome = line.split(',').pop().trim();
-            }
+        .channel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; }
+        .card { background: #111; border-radius: 12px; padding: 10px; border: 1px solid #222; }
+        .card img { width: 50px; height: 50px; object-fit: contain; }
+    </style>
+</head>
+<body>
+
+    <div id="loading-screen">
+        <div class="loader-gold"></div>
+        <h2 style="color: var(--primary); margin-top: 20px;">Carregando Canais</h2>
+        <p id="contador-visual" style="font-size: 24px; font-weight: bold;">0</p>
+        <p style="color: #888;">Organizando sua lista premium...</p>
+    </div>
+
+    <div class="app-container">
+        <div class="player-section">
+            <video id="main-player" class="video-js vjs-16-9 vjs-big-play-centered" controls playsinline></video>
+        </div>
+
+        <div class="setup-bar">
+            <input type="text" id="m3u-url" placeholder="Cole o link .m3u aqui...">
+            <button onclick="dispararCarregamento()">CARREGAR</button>
+        </div>
+
+        <h3 id="titulo-lista" style="color: var(--primary); margin-top: 15px;">Canais Disponíveis</h3>
+        <main id="channel-list" class="channel-grid"></main>
+    </div>
+
+    <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+    <script>
+        const player = videojs('main-player');
+
+        // 1. FUNÇÃO QUE ATIVA A TELA DE CARREGAMENTO PRIMEIRO
+        function dispararCarregamento() {
+            const url = document.getElementById('m3u-url').value.trim();
+            if(!url) return alert("Por favor, cole um link.");
+
+            // Abre a nova tela
+            document.getElementById('loading-screen').style.display = 'flex';
+            document.getElementById('contador-visual').innerText = "Iniciando...";
+
+            // Dá 100ms para o navegador desenhar a tela antes de começar o processamento pesado
+            setTimeout(() => {
+                carregarM3U(url);
+            }, 100);
+        }
+
+        // 2. FUNÇÃO DE CAPTURA COM CONTADOR REAL
+        async function carregarM3U(url) {
+            const contadorEl = document.getElementById('contador-visual');
             
-            // Tenta encontrar o logo se existir (tvg-logo)
-            const logoMatch = line.match(/tvg-logo="([^"]+)"/);
-            const logo = logoMatch ? logoMatch[1] : "https://via.placeholder.com/50";
-            
-            // O link do canal costuma estar na linha seguinte ou duas abaixo
-            let link = "";
-            for (let j = i + 1; j < i + 4 && j < lines.length; j++) {
-                if (lines[j].trim().startsWith('http')) {
-                    link = lines[j].trim();
-                    break;
+            try {
+                const proxy = "https://api.allorigins.win/raw?url=";
+                const res = await fetch(proxy + encodeURIComponent(url));
+                const data = await res.text();
+                
+                if(!data.includes("#EXTM3U")) {
+                    throw new Error("Lista inválida");
                 }
-            }
-            
-            if(link) {
-                novosCanais.push({ nome, url: link, logo });
+
+                const lines = data.split('\n');
+                const canaisExtraidos = [];
+                let totalCanais = 0;
+
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].startsWith('#EXTINF:')) {
+                        let nome = lines[i].split(',').pop().trim();
+                        let link = lines[i+1]?.trim();
+                        
+                        if(link && link.startsWith('http')) {
+                            canaisExtraidos.push({ nome, url: link });
+                            totalCanais++;
+
+                            // ATUALIZA O CONTADOR A CADA 50 CANAIS PARA NÃO TRAVAR
+                            if(totalCanais % 50 === 0) {
+                                contadorEl.innerText = totalCanais;
+                                // Pequena pausa técnica para atualizar o número na tela
+                                await new Promise(r => setTimeout(r, 0));
+                            }
+                        }
+                    }
+                }
+
+                renderizarCanais(canaisExtraidos);
+                document.getElementById('titulo-lista').innerText = "Sua Lista (" + totalCanais + " canais)";
+                
+                // Fecha a tela de carregamento
+                document.getElementById('loading-screen').style.display = 'none';
+
+            } catch(e) {
+                alert("Erro ao processar lista. Verifique o link.");
+                document.getElementById('loading-screen').style.display = 'none';
             }
         }
-    }
-    
-    if(novosCanais.length > 0) {
-        render(novosCanais);
-        // Esconde os canais de teste para mostrar os teus
-        document.querySelector('h3').innerText = "A Tua Lista (" + novosCanais.length + " canais)";
-    }
-}
+
+        function renderizarCanais(lista) {
+            const container = document.getElementById('channel-list');
+            container.innerHTML = "";
+            lista.slice(0, 300).forEach(c => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `<div style="font-size:10px;">${c.nome}</div>`;
+                card.onclick = () => {
+                    player.src({ src: c.url, type: 'application/x-mpegURL' });
+                    player.play();
+                };
+                container.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>
