@@ -3,133 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini IBO Pro - Ultra Fast</title>
+    <title>Gemini Smarters Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        :root { --accent: #ffc107; --bg: #000; --card: #121212; }
+        :root { --accent: #ffc107; --bg: #0b162a; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; overflow: hidden; }
-        .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
-        .page.active { display: flex; }
+        .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .active { display: flex; }
 
-        /* Login e Sincronismo Profissional */
-        .box { width: 90%; max-width: 400px; text-align: center; }
-        input { background: #1a1a1a; border: 1px solid #333; color: white; padding: 18px; width: 100%; border-radius: 12px; margin-bottom: 15px; box-sizing: border-box; }
-        .btn { background: var(--accent); color: #000; border: none; padding: 18px; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; }
+        /* Loader Smarters Style */
+        #loader-box { width: 85%; display: none; margin-top: 40px; }
+        .bar-bg { width: 100%; height: 6px; background: #1a2a44; border-radius: 10px; overflow: hidden; }
+        .bar-fill { height: 100%; background: #fff; width: 0%; transition: width 0.1s; }
+        #status { margin-top: 15px; font-size: 18px; letter-spacing: 1px; }
 
-        /* BARRA DE PROGRESSO E CONTADOR - IBO STYLE */
-        .sync-area { width: 100%; display: none; margin-top: 30px; }
-        .bar-bg { width: 100%; height: 14px; background: #222; border-radius: 10px; overflow: hidden; border: 1px solid #333; }
-        .bar-fill { height: 100%; background: var(--accent); width: 0%; box-shadow: 0 0 20px var(--accent); }
-        #status-txt { margin-top: 15px; color: var(--accent); font-weight: bold; font-size: 16px; letter-spacing: 1px; }
+        /* Grid */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; }
+        .card { background: #162541; border-radius: 12px; padding: 35px 10px; cursor: pointer; position: relative; border: 1px solid #1e3256; }
+        .badge { position: absolute; top: 10px; right: 10px; background: var(--accent); color: #000; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
 
-        /* Dashboard Categorias */
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 95%; }
-        .card { background: var(--card); border: 1px solid #222; border-radius: 15px; padding: 35px 10px; text-align: center; position: relative; }
-        .badge { position: absolute; top: 10px; right: 10px; background: var(--accent); color: #000; font-size: 11px; padding: 3px 7px; border-radius: 5px; font-weight: bold; }
-
-        /* Player e Navegação */
+        /* Player */
         #player-ui { display: none; width: 100%; height: 230px; background: #000; position: fixed; top: 0; z-index: 1000; border-bottom: 2px solid var(--accent); }
         video { width: 100%; height: 100%; }
-        .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0a0a0a; z-index: 3000; transition: 0.3s; overflow-y: auto; }
-        .sidebar.active { left: 0; }
-        .item { padding: 20px; border-bottom: 1px solid #111; font-size: 14px; color: #999; text-align: left; }
+
+        /* Menu */
+        .side { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0b162a; z-index: 3000; transition: 0.3s; overflow-y: auto; }
+        .side.open { left: 0; }
+        .item { padding: 18px; border-bottom: 1px solid #162541; font-size: 14px; text-align: left; }
 
         #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 65px; height: 65px; border-radius: 50%; display: none; align-items: center; justify-content: center; color: #000; font-size: 30px; z-index: 4000; }
+        input { background: #162541; border: 1px solid #1e3256; color: #fff; padding: 15px; width: 85%; border-radius: 8px; margin-bottom: 15px; }
+        .btn { background: #fff; color: #0b162a; border: none; padding: 15px; width: 85%; border-radius: 8px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div id="p-sync" class="page active">
-        <div class="box">
-            <h1 style="color: var(--accent); font-size: 30px; letter-spacing: 2px;">IBO PLAYER</h1>
-            <input type="text" id="iptv-url" placeholder="URL M3U Olympus">
-            <button class="btn" id="btn-go" onclick="turboSync()">SINCRONIZAR AGORA</button>
-            <div class="sync-area" id="loader">
-                <div class="bar-bg"><div id="bar" class="bar-fill"></div></div>
-                <div id="status-txt">LENDO LISTA...</div>
-            </div>
+        <h2 style="margin-bottom: 30px;">SMARTERS <span style="color:var(--accent)">PRO</span></h2>
+        <input type="text" id="url" placeholder="M3U URL (Olympus)">
+        <button class="btn" onclick="turboSync()">DOWNLOAD PLAYLIST</button>
+        <div id="loader-box">
+            <p id="status">Downloading Your Playlist Content</p>
+            <div class="bar-bg"><div id="bar" class="bar-fill"></div></div>
+            <p id="count" style="margin-top:10px; color:var(--accent)">0 items processed</p>
         </div>
     </div>
 
     <div id="p-home" class="page">
         <div class="grid">
-            <div class="card" onclick="abrir('canais')"><div class="badge" id="c-c">0</div>📺<br>LIVE TV</div>
-            <div class="card" onclick="abrir('filmes')"><div class="badge" id="c-f">0</div>🎬<br>FILMES</div>
-            <div class="card" onclick="abrir('series')"><div class="badge" id="c-s">0</div>🍿<br>SÉRIES</div>
-            <div class="card" onclick="location.reload()">🔄<br>SAIR</div>
+            <div class="card" onclick="openCat('canais')"><div class="badge" id="c1">0</div>📺<br>LIVE TV</div>
+            <div class="card" onclick="openCat('filmes')"><div class="badge" id="c2">0</div>🎬<br>MOVIES</div>
+            <div class="card" onclick="openCat('series')"><div class="badge" id="c3">0</div>🍿<br>SERIES</div>
+            <div class="card" onclick="location.reload()">🔄<br>LOGOUT</div>
         </div>
     </div>
 
     <div id="player-ui"><video id="video" controls playsinline></video></div>
     <div id="fab" onclick="toggleNav()">☰</div>
-    <div id="side" class="sidebar"><div id="list-container"></div></div>
+    <div id="side" class="side"><div id="list" style="margin-top:20px"></div></div>
 
     <script>
         let db = { canais: [], filmes: [], series: [] };
         let hls = new Hls({ enableWorker: true });
 
         async function turboSync() {
-            const url = document.getElementById('iptv-url').value;
+            const url = document.getElementById('url').value;
             if(!url) return;
-
-            document.getElementById('btn-go').style.display = 'none';
-            document.getElementById('loader').style.display = 'block';
-            const bar = document.getElementById('bar');
-            const status = document.getElementById('status-txt');
-
+            document.getElementById('loader-box').style.display = 'block';
+            
             try {
                 const proxy = "https://api.allorigins.win/raw?url=";
                 const response = await fetch(proxy + encodeURIComponent(url));
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let acc = '';
+                const text = await response.text();
+                
+                const bar = document.getElementById('bar');
+                const countLbl = document.getElementById('count');
+                
+                // MECANISMO SMARTERS: Busca ultra rápida usando Regex Global
+                const regex = /#EXTINF:.*?,(.*?)\n(http.*?)(?=\n#|$)/g;
+                let m;
                 let total = 0;
 
-                // Loop de leitura ultra-rápida por blocos
-                while(true) {
-                    const {done, value} = await reader.read();
-                    if(done) break;
+                while ((m = regex.exec(text)) !== null) {
+                    total++;
+                    const n = m[1].trim();
+                    const u = m[2].trim();
+                    const nU = n.toUpperCase();
 
-                    acc += decoder.decode(value, {stream: true});
-                    
-                    // Processa apenas quando encontrar uma quebra de linha completa
-                    if (acc.includes('\n')) {
-                        const lines = acc.split('\n');
-                        acc = lines.pop(); // Guarda a linha incompleta para o próximo bloco
+                    if(nU.includes('SERIE') || u.includes('series')) db.series.push({n, u});
+                    else if(u.includes('movie') || nU.includes('FILME')) db.filmes.push({n, u});
+                    else db.canais.push({n, u});
 
-                        for(let i=0; i < lines.length; i++) {
-                            if(lines[i].startsWith('#EXTINF:')) {
-                                total++;
-                                const nome = lines[i].split(',').pop().trim();
-                                const link = lines[i+1]?.trim();
-                                
-                                if(link && link.startsWith('http')) {
-                                    const nUP = nome.toUpperCase();
-                                    if(nUP.includes('SERIE') || link.includes('series')) db.series.push({n: nome, u: link});
-                                    else if(link.includes('movie') || nUP.includes('FILME')) db.filmes.push({n: nome, u: link});
-                                    else db.canais.push({n: nome, u: link});
-
-                                    // Atualiza a cada 50 canais para manter a fluidez visual
-                                    if(total % 50 === 0) {
-                                        bar.style.width = (total % 100) + "%";
-                                        status.innerText = "CAPTURANDO: " + total;
-                                    }
-                                }
-                            }
-                        }
+                    if(total % 500 === 0) {
+                        bar.style.width = (total % 100) + "%";
+                        countLbl.innerText = total + " items processed";
                     }
                 }
                 
-                finalizar();
-            } catch(e) { status.innerText = "ERRO NA CONEXÃO."; }
-        }
+                document.getElementById('c1').innerText = db.canais.length;
+                document.getElementById('c2').innerText = db.filmes.length;
+                document.getElementById('c3').innerText = db.series.length;
+                
+                setTimeout(() => {
+                    document.getElementById('p-sync').classList.remove('active');
+                    document.getElementById('p-home').classList.add('active');
+                }, 500);
 
-        function finalizar() {
-            document.getElementById('c-c').innerText = db.canais.length;
-            document.getElementById('c-f').innerText = db.filmes.length;
-            document.getElementById('c-s').innerText = db.series.length;
-            document.getElementById('p-sync').classList.remove('active');
-            document.getElementById('p-home').classList.add('active');
+            } catch(e) { alert("Error downloading playlist."); }
         }
 
         function play(u) {
@@ -141,26 +121,22 @@
             hls.on(Hls.Events.MANIFEST_PARSED, () => v.play());
         }
 
-        function abrir(cat) {
+        function openCat(cat) {
             document.getElementById('p-home').classList.remove('active');
             document.getElementById('fab').style.display = 'flex';
-            const cont = document.getElementById('list-container');
-            cont.innerHTML = `<div style="padding:25px; background:#000; color:#ffc107; font-weight:bold; border-bottom:1px solid #222;">${cat.toUpperCase()}</div>`;
-            
-            // Renderização otimizada
-            const frag = document.createDocumentFragment();
+            const l = document.getElementById('list');
+            l.innerHTML = `<div style="padding:20px; font-weight:bold; border-bottom:1px solid #162541;">${cat.toUpperCase()}</div>`;
             db[cat].forEach(i => {
                 const d = document.createElement('div');
                 d.className = 'item';
                 d.innerText = "▶ " + i.n;
                 d.onclick = () => { play(i.u); toggleNav(); };
-                frag.appendChild(d);
+                l.appendChild(d);
             });
-            cont.appendChild(frag);
             toggleNav();
         }
 
-        function toggleNav() { document.getElementById('side').classList.toggle('active'); }
+        function toggleNav() { document.getElementById('side').classList.toggle('open'); }
     </script>
 </body>
 </html>
