@@ -3,21 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini IBO Player Pro</title>
-    <script src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
+    <title>IBO Player Gemini</title>
     <style>
-        :root { --accent: #ffc107; --bg: #000; --card: #141414; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
+        body { background: #000; color: #fff; font-family: sans-serif; margin: 0; padding: 0; overflow: hidden; }
+        .page { display: none; height: 100vh; width: 100vw; flex-direction: column; align-items: center; justify-content: center; }
+        .active { display: flex; }
         
-        .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-        .page.active { display: flex; }
+        /* Login */
+        .box { width: 85%; text-align: center; }
+        input { background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 15px; width: 100%; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; }
+        button { background: #ffc107; color: #000; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; }
 
-        /* Login e Barra de Progresso IBO Style */
-        .login-container { width: 90%; max-width: 400px; }
-        input { background: #1a1a1a; border: 1px solid #333; color: white; padding: 16px; width: 100%; border-radius: 8px; margin-bottom: 15px; box-sizing: border-box; }
-        .btn-sync { background: var(--accent); color: black; border: none; padding: 16px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; }
+        /* Barra e Contador */
+        #loader { width: 100%; display: none; margin-top: 20px; }
+        .bar-bg { width: 100%; height: 10px; background: #222; border-radius: 5px; overflow: hidden; }
+        .bar-fill { height: 100%; background: #ffc107; width: 0%; }
+        #status { color: #ffc107; font-size: 14px; margin-top: 10px; font-weight: bold; }
 
-        .progress-area { width: 100%; display: none; margin-top: 30px; }
-        .bar-bg { width: 100%; height: 12px; background: #222; border-radius: 10px; overflow: hidden; border: 1px solid #333; }
-        .bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; box-shadow: 0 0 15px var(--accent); }
-        #count-display { margin-top: 12px; color: var(--accent); font-weight: bold; font-size: 14px; letter-spacing:
+        /* Grid IBO */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; }
+        .card { background: #111; border: 1px solid #222; border-radius: 12px; padding: 30px 10px; text-align: center; position: relative; }
+        .badge { position: absolute; top: 8px; right: 8px; background: #ffc107; color: #000; font-size: 10px; padding: 2px 5px; border-radius: 4px; }
+
+        /* Player */
+        #player-ui { display: none; width: 100%; height: 220px; background: #000; position: fixed; top: 0; z-index: 1000; border-bottom: 2px solid #ffc107; }
+        video { width: 100%; height: 100%; }
+
+        /* Menu lateral */
+        .side { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0a0a0a; z-index: 2000; transition: 0.3s; overflow-y: auto; }
+        .side.open { left: 0; }
+        .item { padding: 15px; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
+        
+        #btn-menu { position: fixed; bottom: 20px; right: 20px; background: #ffc107; color: #000; width: 60px; height: 60px; border-radius: 50%; display: none; align-items: center; justify-content: center; z-index: 3000; font-size: 24px; }
+    </style>
+</head>
+<body>
+
+    <div id="p-start" class="page active">
+        <div class="box">
+            <h1 style="color:#ffc107">IBO PLAYER</h1>
+            <input type="text" id="m3u" placeholder="Link M3U Olympus">
+            <button onclick="carregar()">ENTRAR</button>
+            <div id="loader">
+                <div class="bar-bg"><div id="fill" class="bar-fill"></div></div>
+                <p id="status">Lendo lista...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="p-menu" class="page">
+        <div class="grid">
+            <div class="card" onclick="listar('canais')"><div class="badge" id="c1">0</div>📺<br>LIVE TV</div>
+            <div class="card" onclick="listar('filmes')"><div class="badge" id="c2">0</div>🎬<br>FILMES</div>
+            <div class="card" onclick="listar('series')"><div class="badge" id="c3">0</div>🍿<br>SÉRIES</div>
+            <div class="card" onclick="location.reload()">🔄<br>SAIR</div>
+        </div>
+    </div>
+
+    <div id="player-ui"><video id="vid" controls playsinline></video></div>
+    <div id="btn-menu" onclick="topoSide()">☰</div>
+    <div id="side" class="side"><div id="list" style="margin-top:20px"></div></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+        let dados = { canais: [], filmes: [], series: [] };
+        let hls = new Hls();
+
+        async function carregar() {
+            const url = document.getElementById('m3u').value;
+            if(!url) return;
+            document.getElementById('loader').style.display = 'block';
+            
+            try {
+                const proxy = "https://api.allorigins.win/raw?url=";
+                const res = await fetch(proxy + encodeURIComponent(url));
+                const reader = res.body.getReader();
+                let decoder = new TextDecoder();
+                let acc = '';
+                let count = 0;
+
+                while(true) {
+                    const {done, value} = await reader.read();
+                    if(done) break;
+                    acc += decoder.decode(value, {stream: true});
+                    let lines = acc.split('\n');
+                    acc = lines.pop();
+
+                    for(let i=0; i<lines.length; i++) {
+                        if(lines[i].includes('#EXTINF:')) {
+                            let nome = lines[i].split(',').pop().trim();
+                            let link = lines[i+1]?.trim();
+                            if(link && link.startsWith('http')) {
+                                count++;
+                                if(link.includes('movie')) dados.filmes.push({n:nome, u:link});
+                                else if(link.includes('series')) dados.series.push({n:nome, u:link});
+                                else dados.canais.push({n:nome, u:link});
+                                
+                                document.getElementById('fill').style.width = (count % 100) + "%";
+                                document.getElementById('status').
