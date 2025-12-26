@@ -3,81 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini IBO Player</title>
+    <title>Gemini IBO Player Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
     <style>
-        :root { --accent: #ffc107; --bg: #0a0a0a; --card: #1a1a1a; }
+        :root { --accent: #ffc107; --bg: #000; --card: #141414; }
         body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
         
-        .page { display: none; height: 100vh; flex-direction: column; align-items: center; padding: 20px; box-sizing: border-box; }
+        .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
         .page.active { display: flex; }
 
-        /* Estilo Login IBO */
-        .login-box { text-align: center; margin-top: 50px; width: 100%; }
-        input { background: #222; border: 1px solid #333; color: white; padding: 15px; width: 85%; border-radius: 8px; margin-bottom: 10px; font-size: 16px; }
-        .btn-sync { background: var(--accent); color: black; border: none; padding: 15px; width: 85%; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        /* Login e Barra de Progresso IBO Style */
+        .login-container { width: 90%; max-width: 400px; }
+        input { background: #1a1a1a; border: 1px solid #333; color: white; padding: 16px; width: 100%; border-radius: 8px; margin-bottom: 15px; box-sizing: border-box; }
+        .btn-sync { background: var(--accent); color: black; border: none; padding: 16px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; }
 
-        /* Barra de Carregamento Amarela */
-        .loader-container { width: 85%; display: none; margin-top: 30px; text-align: center; }
-        .bar-bg { width: 100%; height: 12px; background: #333; border-radius: 10px; overflow: hidden; }
-        .bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.1s; box-shadow: 0 0 15px var(--accent); }
-        #status-txt { margin-top: 10px; color: var(--accent); font-size: 14px; }
-
-        /* Home Dashboard IBO Style */
-        .ibo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 500px; margin-top: 20px; }
-        .ibo-card { background: var(--card); border: 1px solid #333; border-radius: 12px; padding: 30px 10px; text-align: center; cursor: pointer; position: relative; }
-        .ibo-card:active { background: #252525; border-color: var(--accent); }
-        .ibo-card b { display: block; margin-top: 10px; font-size: 14px; }
-        .badge { position: absolute; top: 10px; right: 10px; background: var(--accent); color: black; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-
-        /* Player e Lista */
-        #player-wrapper { display: none; width: 100%; height: 230px; background: #000; position: fixed; top: 0; z-index: 1000; border-bottom: 2px solid var(--accent); }
-        .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0f0f0f; z-index: 3000; transition: 0.3s; overflow-y: auto; }
-        .sidebar.active { left: 0; }
-        .chan-item { padding: 15px; border-bottom: 1px solid #1a1a1a; font-size: 14px; color: #ddd; }
-        .chan-item:active { background: #222; color: var(--accent); }
-
-        #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 65px; height: 65px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 30px; color: #000; z-index: 4000; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
-    </style>
-</head>
-<body>
-
-    <div id="p-login" class="page active">
-        <div class="login-box">
-            <h1 style="color: var(--accent); letter-spacing: 2px;">IBO PLAYER</h1>
-            <p style="color: #888; margin-bottom: 30px;">GEMINI EDITION</p>
-            <input type="text" id="m3u-url" placeholder="URL M3U (Link Olympus)">
-            <button class="btn-sync" id="btn-start" onclick="iboSync()">CARREGAR LISTA</button>
-            
-            <div class="loader-container" id="l-box">
-                <div class="bar-bg"><div id="bar" class="bar-fill"></div></div>
-                <p id="status-txt">Iniciando download...</p>
-            </div>
-        </div>
-    </div>
-
-    <div id="p-home" class="page">
-        <h2 style="margin-top: 0; color: #eee;">Bem-vindo</h2>
-        <div class="ibo-grid">
-            <div class="ibo-card" onclick="abrirSeçao('canais')">
-                <div class="badge" id="b-c">0</div>
-                <span>📺</span><b>LIVE TV</b>
-            </div>
-            <div class="ibo-card" onclick="abrirSeçao('filmes')">
-                <div class="badge" id="b-f">0</div>
-                <span>🎬</span><b>FILMES</b>
-            </div>
-            <div class="ibo-card" onclick="abrirSeçao('series')">
-                <div class="badge" id="b-s">0</div>
-                <span>🍿</span><b>SÉRIES</b>
-            </div>
-            <div class="ibo-card" onclick="location.reload()">
-                <span>🔄</span><b>LOGOUT</b>
-            </div>
-        </div>
-    </div>
-
-    <div id="player-wrapper"></div>
-    <div id="fab" onclick="toggleSide()">☰</div>
-    <div id="side" class="sidebar">
-        <div id="side-header" style="padding: 20px; background: #000; color: var(--accent); font-weight: bold; border-bottom: 1px solid #333;">LISTA</div>
+        .progress-area { width: 100%; display: none; margin-top: 30px; }
+        .bar-bg { width: 100%; height: 12px; background: #222; border-radius: 10px; overflow: hidden; border: 1px solid #333; }
+        .bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; box-shadow: 0 0 15px var(--accent); }
+        #count-display { margin-top: 12px; color: var(--accent); font-weight: bold; font-size: 14px; letter-spacing:
