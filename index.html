@@ -3,147 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini IPTV v5 - Progress</title>
+    <title>Gemini IPTV - Ultra Fast</title>
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
     <style>
-        :root { --accent: #ffc107; --bg: #0b0b0b; }
+        :root { --accent: #ffc107; --bg: #000; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; overflow: hidden; }
+        .player-box { background: #000; border-bottom: 2px solid var(--accent); position: sticky; top: 0; z-index: 1000; }
+        .video-js { width: 100% !important; height: 210px !important; }
         
-        .main-wrapper { display: flex; height: 100vh; flex-direction: column; }
-        .player-header { background: #000; border-bottom: 2px solid var(--accent); position: relative; }
-        .video-js { width: 100% !important; height: 220px !important; }
+        /* Barra Amarela de Progresso */
+        .progress-container { width: 100%; height: 8px; background: #222; }
+        .progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; }
 
-        /* Barra de Progresso Amarela */
-        .progress-container { width: 100%; height: 6px; background: #222; display: none; }
-        .progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; box-shadow: 0 0 10px var(--accent); }
-
-        /* Menu Lateral */
-        .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #111; z-index: 3000; transition: 0.3s; display: flex; flex-direction: column; }
+        .sidebar { position: fixed; left: -100%; top: 0; width: 80%; height: 100%; background: #111; z-index: 3000; transition: 0.3s; display: flex; flex-direction: column; }
         .sidebar.active { left: 0; }
         .side-content { flex: 1; overflow-y: auto; padding: 10px; }
-        .chan-item { padding: 14px; border-bottom: 1px solid #222; cursor: pointer; font-size: 14px; }
+        .chan-item { padding: 15px; border-bottom: 1px solid #222; font-size: 14px; cursor: pointer; }
 
-        .menu-btn { position: absolute; bottom: -55px; left: 15px; background: var(--accent); color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; z-index: 2000; display: none; }
-
-        .welcome { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-        input { background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 15px; border-radius: 8px; width: 85%; margin-bottom: 12px; }
-        button.load-btn { background: var(--accent); border: none; padding: 15px 40px; border-radius: 8px; font-weight: bold; font-size: 16px; }
-        
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; z-index: 2500; }
-        .overlay.active { display: block; }
+        .btn-menu { position: absolute; bottom: -50px; left: 15px; background: var(--accent); border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; display: none; }
+        .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; text-align: center; padding: 20px; }
+        input { background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 15px; border-radius: 8px; width: 85%; margin-bottom: 10px; }
+        .sync-btn { background: var(--accent); border: none; padding: 15px 30px; border-radius: 8px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div class="sidebar" id="sidebar">
-        <div style="padding: 20px; background: #000; border-bottom: 1px solid #333;">
-            <button onclick="toggleMenu()" style="float: right; background: none; border: none; color: white; font-size: 24px;">✕</button>
-            <h3 style="color: var(--accent); margin: 0;">MEUS CANAIS</h3>
-            <small id="stat-count">0 carregados</small>
+    <div class="sidebar" id="menu">
+        <div style="padding: 20px; background: #000; border-bottom: 1px solid #222;">
+            <button onclick="toggleMenu()" style="float: right; color: white; background: none; border: none; font-size: 20px;">✕</button>
+            <h3 style="color: var(--accent); margin: 0;">CANAIS</h3>
         </div>
-        <div class="side-content" id="menu-lista"></div>
+        <div class="side-content" id="lista"></div>
     </div>
 
-    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+    <div class="player-box">
+        <video id="vid" class="video-js vjs-16-9 vjs-big-play-centered" controls playsinline></video>
+        <div class="progress-container"><div class="progress-bar" id="bar"></div></div>
+        <button class="btn-menu" id="m-btn" onclick="toggleMenu()">☰ ABRIR LISTA</button>
+    </div>
 
-    <div class="main-wrapper">
-        <div class="player-header">
-            <video id="player" class="video-js vjs-16-9 vjs-big-play-centered" controls playsinline></video>
-            <div class="progress-container" id="p-cont"><div class="progress-bar" id="p-bar"></div></div>
-            <button class="menu-btn" id="btn-abrir" onclick="toggleMenu()">☰ LISTA DE CANAIS</button>
+    <div class="welcome" id="home">
+        <div id="setup">
+            <h2 style="color: var(--accent);">Gemini IPTV Pro</h2>
+            <input type="text" id="url" placeholder="Cole seu link aqui...">
+            <button class="sync-btn" onclick="startSync()">SINCRONIZAR AGORA</button>
         </div>
-
-        <div class="welcome" id="welcome">
-            <div id="ui-box" style="width: 100%; text-align: center;">
-                <h2 style="color: var(--accent);">Gemini IPTV Pro</h2>
-                <input type="text" id="iptv-url" placeholder="Cole seu link Olympus aqui...">
-                <button class="load-btn" onclick="carregarLista()">INICIAR SINCRONIZAÇÃO</button>
-            </div>
-            <p id="msg-erro" style="color: #ff4444; margin-top: 15px; display: none;"></p>
-        </div>
+        <p id="msg" style="margin-top: 20px; color: var(--accent); display: none;">📥 Sincronizando...</p>
     </div>
 
     <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
     <script>
-        const player = videojs('player');
-        
-        function toggleMenu() {
-            document.getElementById('sidebar').classList.toggle('active');
-            document.getElementById('overlay').classList.toggle('active');
-        }
+        const player = videojs('vid');
+        function toggleMenu() { document.getElementById('menu').classList.toggle('active'); }
 
-        async function carregarLista() {
-            const url = document.getElementById('iptv-url').value.trim();
-            if(!url) return;
+        async function startSync() {
+            const link = document.getElementById('url').value.trim();
+            if(!link) return;
 
-            const pCont = document.getElementById('p-cont');
-            const pBar = document.getElementById('p-bar');
-            const uiBox = document.getElementById('ui-box');
-            const msgErro = document.getElementById('msg-erro');
+            document.getElementById('setup').style.display = 'none';
+            const msg = document.getElementById('msg');
+            msg.style.display = 'block';
+            const bar = document.getElementById('bar');
 
-            uiBox.style.display = 'none';
-            msgErro.style.display = 'none';
-            pCont.style.display = 'block';
-            
             try {
                 const proxy = "https://api.allorigins.win/raw?url=";
-                const response = await fetch(proxy + encodeURIComponent(url));
-                if(!response.ok) throw new Error();
-
-                const reader = response.body.getReader();
+                const res = await fetch(proxy + encodeURIComponent(link));
+                const reader = res.body.getReader();
                 let decoder = new TextDecoder();
-                let partialData = '';
-                let totalCanais = [];
+                let fullText = '';
+                let canais = [];
 
                 while(true) {
                     const {done, value} = await reader.read();
-                    if(done) break;
+                    if(done || canais.length >= 500) break; // LIMITADO A 500 PARA SER RÁPIDO
 
-                    partialData += decoder.decode(value, {stream: true});
-                    let lines = partialData.split('\n');
-                    partialData = lines.pop();
+                    fullText += decoder.decode(value, {stream: true});
+                    const lines = fullText.split('\n');
+                    fullText = lines.pop();
 
-                    for(let i=0; i < lines.length; i++) {
+                    for(let i=0; i<lines.length; i++) {
                         if(lines[i].includes('#EXTINF:')) {
                             const nome = lines[i].split(',').pop().trim();
-                            const link = lines[i+1]?.trim();
-                            if(link && link.startsWith('http')) {
-                                totalCanais.push({nome, link});
+                            const url = lines[i+1]?.trim();
+                            if(url && url.startsWith('http')) {
+                                canais.push({nome, url});
+                                // Atualiza a barra amarela
+                                bar.style.width = (canais.length / 5) + "%"; 
                             }
                         }
                     }
-                    
-                    // Atualiza Barra de Progresso (simulando até 100%)
-                    let progress = Math.min((totalCanais.length / 2000) * 100, 100);
-                    pBar.style.width = progress + "%";
                 }
 
-                renderizar(totalCanais);
-                document.getElementById('btn-abrir').style.display = 'block';
-                document.getElementById('stat-count').innerText = totalCanais.length + " Canais";
-                toggleMenu();
+                render(canais);
+                bar.style.width = "100%";
+                document.getElementById('m-btn').style.display = 'block';
+                msg.innerText = "✅ " + canais.length + " Canais Prontos!";
+                setTimeout(toggleMenu, 1000);
 
-            } catch (e) {
-                uiBox.style.display = 'block';
-                msgErro.innerText = "⚠️ Erro: Link expirou ou servidor bloqueou. Resete as travas no painel.";
-                msgErro.style.display = 'block';
-                pCont.style.display = 'none';
+            } catch(e) {
+                msg.innerText = "❌ Erro. Resete as travas no painel.";
             }
         }
 
-        function renderizar(lista) {
-            const container = document.getElementById('menu-lista');
-            container.innerHTML = "";
-            lista.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'chan-item';
-                div.innerHTML = `📺 ${item.nome}`;
-                div.onclick = () => {
-                    player.src({ src: item.link, type: 'application/x-mpegURL' });
+        function render(items) {
+            const container = document.getElementById('lista');
+            items.forEach(c => {
+                const d = document.createElement('div');
+                d.className = 'chan-item';
+                d.innerHTML = "📺 " + c.nome;
+                d.onclick = () => {
+                    player.src({ src: c.url, type: 'application/x-mpegURL' });
                     player.play();
                     toggleMenu();
                 };
-                container.appendChild(div);
+                container.appendChild(d);
             });
         }
     </script>
