@@ -3,100 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini IPTV Pro</title>
+    <title>IPTV Teste Real</title>
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
     <style>
-        :root { --primary: #ffc107; --bg: #000; }
-        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; text-align: center; }
-        #loading-screen { position: fixed; inset: 0; background: #000; z-index: 10000; display: none; flex-direction: column; align-items: center; justify-content: center; }
-        .app-container { max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; min-height: 100vh; }
-        .player-section { position: sticky; top: 0; z-index: 1000; background: #000; border-bottom: 2px solid #1a1a1a; }
-        #main-player { width: 100% !important; max-height: 220px; }
-        .setup-bar { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-        input { background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 8px; outline: none; }
-        button { background: var(--primary); border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; color: #000; }
-        .channel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; }
-        .card { background: #111; border-radius: 10px; padding: 10px 5px; border: 1px solid #222; font-size: 10px; min-height: 50px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; margin: 0; }
+        .setup { padding: 20px; background: #111; }
+        input { width: 80%; padding: 12px; margin-bottom: 10px; border-radius: 5px; border: 1px solid #333; background: #222; color: #fff; }
+        button { padding: 12px 20px; background: #ffc107; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        #status { font-size: 24px; color: #ffc107; margin: 20px 0; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 10px; }
+        .item { background: #1a1a1a; padding: 10px; font-size: 10px; border-radius: 5px; height: 40px; display: flex; align-items: center; justify-content: center; border: 1px solid #333; }
     </style>
 </head>
 <body>
 
-    <div id="loading-screen">
-        <h2 style="color: var(--primary);">Sincronizando com Olympus...</h2>
-        <p id="contador" style="font-size: 40px; font-weight: bold;">0</p>
-        <p style="font-size: 12px; color: #888;">Tentando conexão após Reset de Trava...</p>
+    <div class="setup">
+        <video id="vid" class="video-js vjs-16-9" controls playsinline style="width: 100%; max-width: 500px; margin: 0 auto;"></video>
+        <br><br>
+        <input type="text" id="url" placeholder="Cole o link aqui...">
+        <br>
+        <button onclick="carregar()">CARREGAR AGORA</button>
     </div>
 
-    <div class="app-container">
-        <div class="player-section"><video id="main-player" class="video-js vjs-16-9 vjs-big-play-centered" controls playsinline></video></div>
-        <div class="setup-bar">
-            <input type="text" id="m3u-url" placeholder="Cole seu link get.php aqui...">
-            <button onclick="conectarServidor()">FORÇAR CONEXÃO AGORA</button>
-        </div>
-        <main id="channel-list" class="channel-grid"></main>
-    </div>
+    <div id="status">Canais: 0</div>
+    <div id="lista" class="grid"></div>
 
     <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
     <script>
-        const player = videojs('main-player');
+        const player = videojs('vid');
 
-        async function conectarServidor() {
-            const url = document.getElementById('m3u-url').value.trim();
-            if(!url) return;
+        async function carregar() {
+            const link = document.getElementById('url').value.trim();
+            if(!link) return;
 
-            document.getElementById('loading-screen').style.display = 'flex';
-            const contDisplay = document.getElementById('contador');
+            document.getElementById('status').innerText = "A carregar...";
+            document.getElementById('lista').innerHTML = "";
 
-            // AllOrigins como ponte de dados
-            const proxy = "https://api.allorigins.win/raw?url=";
-            
             try {
-                // Adicionamos um timestamp para evitar que o navegador use uma versão bloqueada do cache
-                const finalUrl = url + "&t=" + new Date().getTime();
-                const res = await fetch(proxy + encodeURIComponent(finalUrl));
-                const data = await res.text();
+                // Usamos o proxy para evitar erros de segurança do navegador
+                const proxy = "https://api.allorigins.win/raw?url=";
+                const response = await fetch(proxy + encodeURIComponent(link));
+                const text = await response.text();
 
-                if(!data.includes("#EXTM3U")) throw new Error("BLOQUEIO_PERSISTENTE");
+                if(!text.includes("#EXTM3U")) {
+                    document.getElementById('status').innerText = "Erro: Link inválido ou sem canais.";
+                    return;
+                }
 
-                const lines = data.split('\n');
-                const canais = [];
+                const lines = text.split('\n');
                 let count = 0;
+                const fragment = document.createDocumentFragment();
 
-                for (let i = 0; i < lines.length; i++) {
-                    if (lines[i].includes('#EXTINF:')) {
+                for(let i=0; i<lines.length; i++) {
+                    if(lines[i].includes("#EXTINF:")) {
                         const nome = lines[i].split(',').pop().trim();
-                        let link = lines[i+1]?.trim();
-                        if(link && link.startsWith('http')) {
-                            canais.push({ nome, url: link });
+                        const stream = lines[i+1]?.trim();
+
+                        if(stream && stream.startsWith("http")) {
                             count++;
-                            if(count % 20 === 0) contDisplay.innerText = count;
+                            const div = document.createElement('div');
+                            div.className = 'item';
+                            div.innerText = nome;
+                            div.onclick = () => {
+                                player.src({ src: stream, type: 'application/x-mpegURL' });
+                                player.play();
+                            };
+                            fragment.appendChild(div);
                         }
                     }
                 }
 
-                render(canais);
-                document.getElementById('loading-screen').style.display = 'none';
+                document.getElementById('lista').appendChild(fragment);
+                document.getElementById('status').innerText = "Canais: " + count;
 
-            } catch(e) {
-                alert("O servidor continua a recusar. Por favor, use a opção 'Resetar Trava de ASN/ISP/País' no seu painel e tente novamente em aba anónima.");
-                document.getElementById('loading-screen').style.display = 'none';
+            } catch (e) {
+                document.getElementById('status').innerText = "Erro de conexão.";
             }
-        }
-
-        function render(lista) {
-            const container = document.getElementById('channel-list');
-            container.innerHTML = "";
-            lista.slice(0, 1000).forEach(c => {
-                const div = document.createElement('div');
-                div.className = 'card';
-                div.innerText = c.nome;
-                div.onclick = () => {
-                    player.src({ src: c.url, type: 'application/x-mpegURL' });
-                    player.play();
-                    window.scrollTo({top: 0, behavior: 'smooth'});
-                };
-                container.appendChild(div);
-            });
         }
     </script>
 </body>
