@@ -7,56 +7,34 @@
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
     <style>
         :root { --primary: #ffc107; --bg: #000; }
-        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; text-align: center; overflow-x: hidden; }
-        
-        #loading-screen { 
-            position: fixed; inset: 0; background: #000; 
-            z-index: 10000; display: none; flex-direction: column; 
-            align-items: center; justify-content: center; 
-        }
-        .loader-gold { width: 50px; height: 50px; border: 4px solid #1a1a1a; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
+        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; text-align: center; }
+        #loading-screen { position: fixed; inset: 0; background: #000; z-index: 10000; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .progress-container { width: 80%; max-width: 300px; height: 10px; background: #222; border-radius: 10px; overflow: hidden; margin: 15px 0; border: 1px solid #333; }
+        #progress-bar { width: 0%; height: 100%; background: var(--primary); box-shadow: 0 0 15px var(--primary); transition: width 0.1s; }
         .app-container { max-width: 500px; margin: 0 auto; }
         .player-section { position: sticky; top: 0; z-index: 1000; background: #000; border-bottom: 2px solid #1a1a1a; }
-        
-        .setup-bar { padding: 12px; display: flex; flex-direction: column; gap: 10px; background: #111; }
-        .input-group { display: flex; gap: 8px; }
-        input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 8px; outline: none; }
-        
-        .btn-main { background: var(--primary); border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; color: #000; flex: 1; }
-        .btn-file { background: #333; color: #fff; border: 1px dashed var(--primary); padding: 10px; border-radius: 8px; font-size: 12px; cursor: pointer; }
-
+        .setup-bar { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+        input { background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 8px; outline: none; }
+        button { background: var(--primary); border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; color: #000; }
         .channel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; }
-        .card { background: #111; border-radius: 12px; padding: 12px 5px; border: 1px solid #222; cursor: pointer; }
-        .card-name { font-size: 10px; height: 2.4em; overflow: hidden; color: #ccc; }
+        .card { background: #111; border-radius: 10px; padding: 10px 5px; border: 1px solid #222; font-size: 10px; min-height: 50px; display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
     <div id="loading-screen">
-        <div class="loader-gold"></div>
-        <h2 style="color: var(--primary);">Processando Canais</h2>
-        <p id="contador-visual" style="font-size: 30px; font-weight: bold; color: var(--primary);">0</p>
-        <p>Sincronização em curso...</p>
+        <h2 style="color: var(--primary);">Sincronizando Olympus...</h2>
+        <div class="progress-container"><div id="progress-bar"></div></div>
+        <p id="contador" style="font-size: 35px; font-weight: bold;">0</p>
+        <p style="font-size: 12px; color: #888;">Removendo travas de conexão...</p>
     </div>
 
     <div class="app-container">
         <div class="player-section"><video id="main-player" class="video-js vjs-16-9 vjs-big-play-centered" controls playsinline></video></div>
-
         <div class="setup-bar">
-            <div class="input-group">
-                <input type="text" id="m3u-url" placeholder="Cole o link .m3u ou .php">
-                <button class="btn-main" onclick="carregarPorLink()">LINK</button>
-            </div>
-            
-            <label class="btn-file">
-                📁 CARREGAR ARQUIVO M3U (BAIXADO)
-                <input type="file" id="m3u-file" accept=".m3u,.txt" style="display: none;" onchange="carregarPorArquivo(this)">
-            </label>
+            <input type="text" id="m3u-url" placeholder="Cole seu link get.php aqui...">
+            <button onclick="conectarServidor()">CONECTAR AGORA</button>
         </div>
-
-        <h3 id="titulo-lista" style="color: var(--primary); margin: 15px 0;">Lista Gemini</h3>
         <main id="channel-list" class="channel-grid"></main>
     </div>
 
@@ -64,83 +42,66 @@
     <script>
         const player = videojs('main-player');
 
-        // FUNÇÃO PARA LER ARQUIVO DO TELEMÓVEL (IGNORA BLOQUEIOS DE SERVIDOR)
-        function carregarPorArquivo(input) {
-            const file = input.files[0];
-            if (!file) return;
-
-            document.getElementById('loading-screen').style.display = 'flex';
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                const conteudo = e.target.result;
-                processarDadosM3U(conteudo);
-            };
-            reader.readAsText(file);
-        }
-
-        // FUNÇÃO PARA LER POR LINK (COM PROXY)
-        async function carregarPorLink() {
+        async function conectarServidor() {
             const url = document.getElementById('m3u-url').value.trim();
-            if(!url) return alert("Insira um link!");
+            if(!url) return;
 
             document.getElementById('loading-screen').style.display = 'flex';
+            const bar = document.getElementById('progress-bar');
+            const contDisplay = document.getElementById('contador');
+
+            // Usando AllOrigins para burlar o bloqueio de navegador
+            const proxy = "https://api.allorigins.win/raw?url=";
+            
             try {
-                const proxy = "https://api.allorigins.win/raw?url=";
                 const res = await fetch(proxy + encodeURIComponent(url));
                 const data = await res.text();
-                processarDadosM3U(data);
-            } catch(e) {
-                alert("Erro no servidor. Use a opção de CARREGAR ARQUIVO.");
-                document.getElementById('loading-screen').style.display = 'none';
-            }
-        }
 
-        function processarDadosM3U(texto) {
-            const linhas = texto.split('\n');
-            const canais = [];
-            let count = 0;
-            const display = document.getElementById('contador-visual');
+                if(!data.includes("#EXTM3U")) throw new Error();
 
-            for (let i = 0; i < linhas.length; i++) {
-                if (linhas[i].includes('#EXTINF:')) {
-                    const nome = linhas[i].split(',').pop().trim();
-                    let link = linhas[i+1]?.trim();
-                    
-                    if(link && link.startsWith('http')) {
-                        canais.push({ nome, url: link });
-                        count++;
-                        if(count % 10 === 0) display.innerText = count;
+                const lines = data.split('\n');
+                const canais = [];
+                let count = 0;
+
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].includes('#EXTINF:')) {
+                        const nome = lines[i].split(',').pop().trim();
+                        let link = lines[i+1]?.trim();
+                        
+                        if(link && link.startsWith('http')) {
+                            canais.push({ nome, url: link });
+                            count++;
+                            if(count % 10 === 0) {
+                                contDisplay.innerText = count;
+                                bar.style.width = Math.min(100, (i/lines.length)*100) + "%";
+                            }
+                        }
                     }
                 }
-            }
 
-            if(count > 0) {
-                renderizar(canais);
-                document.getElementById('titulo-lista').innerText = "Canais: " + count;
+                render(canais);
                 document.getElementById('loading-screen').style.display = 'none';
-            } else {
-                alert("Nenhum canal encontrado no arquivo.");
+
+            } catch(e) {
+                alert("ERRO: O painel Olympus bloqueou a conexão. Verifique se desligou a Trava ASN e ISP no painel.");
                 document.getElementById('loading-screen').style.display = 'none';
             }
         }
 
-        function renderizar(lista) {
+        function render(lista) {
             const container = document.getElementById('channel-list');
             container.innerHTML = "";
-            lista.slice(0, 800).forEach(c => {
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.innerHTML = `<div class="card-name">${c.nome}</div>`;
-                card.onclick = () => {
+            lista.slice(0, 600).forEach(c => {
+                const div = document.createElement('div');
+                div.className = 'card';
+                div.innerText = c.nome;
+                div.onclick = () => {
                     player.src({ src: c.url, type: 'application/x-mpegURL' });
                     player.play();
-                    window.scrollTo({top:0, behavior:'smooth'});
                 };
-                container.appendChild(card);
+                container.appendChild(div);
             });
         }
     </script>
 </body>
 </html>
-
