@@ -3,134 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini IPTV Elite</title>
+    <title>Gemini IPTV - Carregamento Real</title>
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
     <style>
         :root { --accent: #ffc107; --bg: #000; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; overflow: hidden; }
 
         /* Telas */
-        .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
+        .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
         .page.active { display: flex; }
+
+        /* Barra de Progresso Estilizada */
+        .loader-box { width: 85%; max-width: 300px; margin-top: 25px; display: none; }
+        .progress-bg { width: 100%; height: 12px; background: #222; border-radius: 10px; overflow: hidden; border: 1px solid #333; }
+        .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; box-shadow: 0 0 15px var(--accent); }
+        #count-txt { margin-top: 10px; font-size: 14px; color: var(--accent); font-weight: bold; }
 
         /* Categorias */
         .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; }
-        .cat-card { background: #111; border: 2px solid #222; border-radius: 15px; padding: 35px 10px; text-align: center; cursor: pointer; }
-        .cat-card:active { border-color: var(--accent); color: var(--accent); }
+        .cat-card { background: #111; border: 2px solid #222; border-radius: 15px; padding: 35px 10px; cursor: pointer; }
+        .cat-card:active { border-color: var(--accent); }
 
-        /* Player Fixo no Topo */
-        #player-box { display: none; width: 100%; background: #000; border-bottom: 2px solid var(--accent); position: fixed; top: 0; z-index: 1000; }
+        /* Interface do Player */
+        #player-box { display: none; width: 100%; background: #000; position: fixed; top: 0; z-index: 1000; border-bottom: 2px solid var(--accent); }
         .video-js { width: 100% !important; height: 210px !important; }
 
-        /* Barra de Sincronismo Amarela */
-        .progress-container { width: 80%; height: 8px; background: #222; border-radius: 5px; margin: 20px 0; overflow: hidden; }
-        .bar { height: 100%; background: var(--accent); width: 0%; transition: 0.3s; }
-
-        /* Menu Lateral (Sidebar) */
+        /* Menu Lateral */
         .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0a0a0a; z-index: 3000; transition: 0.3s; overflow-y: auto; }
         .sidebar.active { left: 0; }
         .chan-item { padding: 15px; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
 
-        /* Ícone Circular Flutuante ☰ */
-        #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 65px; height: 65px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 28px; color: #000; z-index: 4000; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
+        /* Botão Flutuante */
+        #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 65px; height: 65px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 28px; color: #000; z-index: 4000; }
 
-        input { background: #111; border: 1px solid #333; color: white; padding: 15px; width: 80%; border-radius: 10px; margin-bottom: 10px; }
-        .btn-sync { background: var(--accent); border: none; padding: 15px 30px; border-radius: 10px; font-weight: bold; }
+        input { background: #111; border: 1px solid #333; color: white; padding: 15px; width: 80%; border-radius: 10px; }
+        .btn-sync { background: var(--accent); border: none; padding: 15px 30px; border-radius: 10px; font-weight: bold; margin-top: 15px; width: 85%; }
     </style>
 </head>
 <body>
 
     <div id="page-sync" class="page active">
         <h1 style="color: var(--accent);">GEMINI IPTV</h1>
-        <input type="text" id="iptv-url" placeholder="Cole o link Olympus aqui...">
-        <button class="btn-sync" onclick="sync()">SINCRONIZAR</button>
-        <div class="progress-container"><div id="fill" class="bar"></div></div>
-        <p id="status-msg" style="font-size: 12px;"></p>
-    </div>
-
-    <div id="page-menu" class="page">
-        <h2 style="margin-bottom: 30px;">Escolha a Categoria</h2>
-        <div class="cat-grid">
-            <div class="cat-card" onclick="goChannels()">📺<br>CANAIS</div>
-            <div class="cat-card" onclick="alert('Filmes em breve')">🎬<br>FILMES</div>
-            <div class="cat-card" onclick="alert('Séries em breve')">🍿<br>SÉRIES</div>
-            <div class="cat-card" onclick="location.reload()">🔄<br>SAIR</div>
-        </div>
-    </div>
-
-    <div id="player-box">
-        <video id="vid" class="video-js vjs-16-9 vjs-big-play-centered" controls playsinline></video>
-    </div>
-
-    <div id="fab" onclick="toggleSide()">☰</div>
-
-    <div id="side" class="sidebar">
-        <div style="padding: 25px; background: #000; border-bottom: 1px solid #222;">
-            <h3 style="color: var(--accent); margin: 0;">LISTA DE CANAIS</h3>
-        </div>
-        <div id="list-body"></div>
-    </div>
-
-    <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/videojs-http-streaming@3.10.0/dist/videojs-http-streaming.min.js"></script>
-
-    <script>
-        const player = videojs('vid');
-        let channels = [];
-
-        async function sync() {
-            const url = document.getElementById('iptv-url').value;
-            if(!url) return;
-            const fill = document.getElementById('fill');
-            const msg = document.getElementById('status-msg');
-
-            try {
-                const proxy = "https://api.allorigins.win/raw?url=";
-                const res = await fetch(proxy + encodeURIComponent(url));
-                const data = await res.text();
-                const lines = data.split('\n');
-
-                for (let i = 0; i < lines.length; i++) {
-                    if (lines[i].includes('#EXTINF:')) {
-                        const name = lines[i].split(',').pop().trim();
-                        const link = lines[i+1]?.trim();
-                        if(link && link.startsWith('http')) {
-                            channels.push({name, link});
-                            fill.style.width = Math.min((channels.length / 6), 100) + "%";
-                        }
-                    }
-                    if(channels.length >= 600) break;
-                }
-                msg.innerText = "✅ Concluído!";
-                setTimeout(() => {
-                    document.getElementById('page-sync').style.display = 'none';
-                    document.getElementById('page-menu').style.display = 'flex';
-                }, 1000);
-            } catch(e) { msg.innerText = "❌ Erro nas travas do painel."; }
-        }
-
-        function goChannels() {
-            document.getElementById('page-menu').style.display = 'none';
-            document.getElementById('player-box').style.display = 'block';
-            document.getElementById('fab').style.display = 'flex';
-            const body = document.getElementById('list-body');
-            body.innerHTML = "";
-            channels.forEach(c => {
-                const item = document.createElement('div');
-                item.className = 'chan-item';
-                item.innerText = "📺 " + c.name;
-                item.onclick = () => {
-                    player.pause();
-                    player.src({ src: c.link, type: 'application/x-mpegURL' });
-                    player.play();
-                    toggleSide();
-                };
-                body.appendChild(item);
-            });
-            toggleSide();
-        }
-
-        function toggleSide() { document.getElementById('side').classList.toggle('active'); }
-    </script>
-</body>
-</html>
+        <p style="color: #666;
