@@ -9,7 +9,7 @@
         :root { --primary: #ffc107; --bg: #000; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; text-align: center; overflow-x: hidden; }
         
-        /* TELA DE CARREGAMENTO COM BARRA DE PROGRESSO */
+        /* TELA DE CARREGAMENTO */
         #loading-screen { 
             position: fixed; inset: 0; background: #000; 
             z-index: 10000; display: none; flex-direction: column; 
@@ -22,14 +22,13 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ESTILO DA BARRA DE PROGRESSO */
         .progress-container {
             width: 80%; max-width: 300px; height: 8px;
             background: #222; border-radius: 10px; overflow: hidden; margin: 15px 0;
         }
         #progress-bar {
             width: 0%; height: 100%; background: var(--primary);
-            box-shadow: 0 0 10px var(--primary); transition: width 0.3s ease;
+            box-shadow: 0 0 10px var(--primary); transition: width 0.2s ease;
         }
 
         .app-container { max-width: 500px; margin: 0 auto; }
@@ -40,7 +39,6 @@
         
         .channel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; }
         .card { background: #111; border-radius: 12px; padding: 12px 5px; border: 1px solid #222; cursor: pointer; }
-        .card:active { transform: scale(0.95); background: #1a1a1a; }
         .card-name { font-size: 10px; height: 2.4em; overflow: hidden; color: #ccc; margin-top: 5px; }
     </style>
 </head>
@@ -48,14 +46,14 @@
 
     <div id="loading-screen">
         <div class="loader-gold"></div>
-        <h2 style="color: var(--primary); margin: 0;">Processando Lista</h2>
+        <h2 style="color: var(--primary); margin: 0;">Capturando Canais</h2>
         
         <div class="progress-container">
             <div id="progress-bar"></div>
         </div>
         
-        <p id="contador-visual" style="font-size: 20px; font-weight: bold; margin: 5px 0;">0</p>
-        <p id="status-msg" style="color: #666; font-size: 12px;">Conectando ao servidor...</p>
+        <p id="contador-visual" style="font-size: 26px; font-weight: bold; margin: 5px 0; color: var(--primary);">0</p>
+        <p id="status-msg" style="color: #666; font-size: 12px;">Conectando ao túnel de dados...</p>
     </div>
 
     <div class="app-container">
@@ -64,7 +62,7 @@
         </div>
 
         <div class="setup-bar">
-            <input type="text" id="m3u-url" placeholder="Link M3U aqui...">
+            <input type="text" id="m3u-url" placeholder="Insira o link .m3u aqui...">
             <button onclick="iniciarFluxo()">CARREGAR</button>
         </div>
 
@@ -78,12 +76,13 @@
 
         function iniciarFluxo() {
             const url = document.getElementById('m3u-url').value.trim();
-            if(!url) return alert("Cola o teu link primeiro!");
+            if(!url) return alert("Por favor, insira o link M3U.");
 
             document.getElementById('loading-screen').style.display = 'flex';
-            document.getElementById('progress-bar').style.width = '5%';
+            document.getElementById('contador-visual').innerText = "0";
+            document.getElementById('progress-bar').style.width = '0%';
             
-            setTimeout(() => processarLista(url), 200);
+            setTimeout(() => processarLista(url), 300);
         }
 
         async function processarLista(url) {
@@ -92,50 +91,58 @@
             const msg = document.getElementById('status-msg');
 
             try {
+                // Proxy para evitar erros de rede (CORS)
                 const proxy = "https://api.allorigins.win/raw?url=";
                 const res = await fetch(proxy + encodeURIComponent(url));
                 const text = await res.text();
 
-                if(!text.includes("#EXTM3U")) throw new Error();
+                if(!text.includes("#EXTM3U")) {
+                    throw new Error("Formato inválido");
+                }
 
                 const lines = text.split('\n');
                 const canaisFiltrados = [];
                 let encontrados = 0;
 
-                // Simulamos um progresso visual para listas muito rápidas
-                msg.innerText = "Lendo canais...";
+                msg.innerText = "Lendo estrutura da lista...";
                 
                 for(let i=0; i < lines.length; i++) {
-                    if(lines[i].startsWith('#EXTINF:')) {
-                        const nome = lines[i].split(',').pop().trim();
+                    const line = lines[i].trim();
+                    
+                    if(line.startsWith('#EXTINF:')) {
+                        const nome = line.split(',').pop().trim();
                         const link = lines[i+1]?.trim();
                         
                         if(link && link.startsWith('http')) {
                             canaisFiltrados.push({ nome, url: link });
                             encontrados++;
                             
-                            if(encontrados % 40 === 0) {
-                                cont.innerText = encontrados + " canais";
-                                // A barra vai até 90% durante o processamento
-                                let p = Math.min(90, (encontrados / 10)); 
-                                bar.style.width = p + "%";
-                                await new Promise(r => setTimeout(r, 1));
+                            // ATUALIZAÇÃO EM TEMPO REAL (Número e Barra)
+                            cont.innerText = encontrados;
+                            
+                            // A barra cresce até 100% baseada no progresso das linhas lidas
+                            let progresso = Math.min(100, Math.floor((i / lines.length) * 100));
+                            bar.style.width = progresso + "%";
+
+                            // Pequena pausa para o navegador conseguir mostrar os números subindo
+                            if(encontrados % 10 === 0) {
+                                await new Promise(r => setTimeout(r, 0));
                             }
                         }
                     }
                 }
 
                 bar.style.width = "100%";
-                msg.innerText = "Finalizado!";
+                msg.innerText = "Captura finalizada!";
                 
                 setTimeout(() => {
                     renderizar(canaisFiltrados);
-                    document.getElementById('titulo-lista').innerText = "Lista Carregada (" + encontrados + ")";
+                    document.getElementById('titulo-lista').innerText = "Sua Lista (" + encontrados + ")";
                     document.getElementById('loading-screen').style.display = 'none';
-                }, 500);
+                }, 600);
 
             } catch(e) {
-                alert("Erro: O link não responde ou é inválido.");
+                alert("Erro de rede: Certifique-se que o link M3U está correto.");
                 document.getElementById('loading-screen').style.display = 'none';
             }
         }
@@ -143,7 +150,8 @@
         function renderizar(lista) {
             const container = document.getElementById('channel-list');
             container.innerHTML = "";
-            lista.slice(0, 400).forEach(c => {
+            // Mostra apenas os primeiros 500 para o telemóvel não travar
+            lista.slice(0, 500).forEach(c => {
                 const card = document.createElement('div');
                 card.className = 'card';
                 card.innerHTML = `<div class="card-name">${c.nome}</div>`;
