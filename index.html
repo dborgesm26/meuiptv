@@ -3,121 +3,144 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini IPTV v7</title>
+    <title>Gemini IPTV v8</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         :root { --accent: #ffc107; --bg: #000; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; overflow: hidden; }
         .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
         .page.active { display: flex; }
-        .progress-container { width: 85%; height: 10px; background: #222; border-radius: 10px; margin-top: 20px; display: none; overflow: hidden; }
-        .bar { height: 100%; background: var(--accent); width: 0%; transition: 0.2s; }
+        
+        /* Barra de Progresso Amarela */
+        .loader { width: 80%; display: none; margin-top: 20px; }
+        .p-bg { width: 100%; height: 10px; background: #222; border-radius: 5px; overflow: hidden; }
+        .p-fill { height: 100%; background: var(--accent); width: 0%; transition: 0.3s; }
+
         .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; }
-        .cat-card { background: #111; border: 2px solid #222; border-radius: 15px; padding: 40px 10px; cursor: pointer; }
+        .cat-card { background: #111; border: 2px solid #222; border-radius: 12px; padding: 35px 10px; cursor: pointer; font-weight: bold; }
+        
+        /* Player Box */
         #player-box { display: none; width: 100%; position: fixed; top: 0; z-index: 1000; background: #000; border-bottom: 2px solid var(--accent); }
-        video { width: 100%; height: 210px; background: #000; }
+        video { width: 100%; height: 215px; background: #000; }
+
         .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0a0a0a; z-index: 3000; transition: 0.3s; overflow-y: auto; }
         .sidebar.active { left: 0; }
-        .chan-item { padding: 18px; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
-        #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 65px; height: 65px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 30px; color: #000; z-index: 4000; }
-        input { background: #111; border: 1px solid #333; color: white; padding: 15px; width: 80%; border-radius: 10px; margin-bottom: 10px; }
-        .btn { background: var(--accent); border: none; padding: 15px 30px; border-radius: 10px; font-weight: bold; width: 85%; }
+        .chan-item { padding: 16px; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
+
+        #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 60px; height: 60px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 25px; color: #000; z-index: 4000; }
+        
+        input { background: #111; border: 1px solid #333; color: white; padding: 15px; width: 80%; border-radius: 10px; margin-bottom: 15px; }
+        .btn { background: var(--accent); border: none; padding: 15px 30px; border-radius: 10px; font-weight: bold; width: 80%; }
     </style>
 </head>
 <body>
 
     <div id="p-sync" class="page active">
         <h1 style="color: var(--accent);">GEMINI IPTV</h1>
-        <input type="text" id="url" placeholder="Cole o link aqui...">
-        <button class="btn" id="btn-s" onclick="sync()">SINCRONIZAR</button>
-        <div class="progress-container" id="p-cont"><div id="fill" class="bar"></div></div>
-        <div id="status" style="margin-top: 10px; color: var(--accent);"></div>
+        <input type="text" id="iptv-url" placeholder="Cole o link Olympus aqui...">
+        <button class="btn" id="btn-sync" onclick="fazerSync()">SINCRONIZAR</button>
+        <div class="loader" id="loader">
+            <div class="p-bg"><div id="bar" class="p-fill"></div></div>
+            <p id="status-txt" style="margin-top: 10px; color: var(--accent);">Iniciando...</p>
+        </div>
     </div>
 
     <div id="p-menu" class="page">
         <div class="cat-grid">
-            <div class="cat-card" onclick="openChannels()">📺<br>CANAIS</div>
-            <div class="cat-card" onclick="alert('Filmes em breve')">🎬<br>FILMES</div>
-            <div class="cat-card" onclick="alert('Séries em breve')">🍿<br>SÉRIES</div>
-            <div class="cat-card" onclick="location.reload()">🔄<br>SAIR</div>
+            <div class="cat-card" onclick="abrirLista()">📺<br>CANAIS</div>
+            <div class="cat-card" onclick="alert('Brevemente')">🎬<br>FILMES</div>
+            <div class="cat-card" onclick="alert('Brevemente')">🍿<br>SÉRIES</div>
+            <div class="cat-card" onclick="location.reload()">🔄<br>LOGOUT</div>
         </div>
     </div>
 
-    <div id="player-box"><video id="video" controls playsinline muted></video></div>
+    <div id="player-box"><video id="video" controls playsinline></video></div>
     <div id="fab" onclick="toggleSide()">☰</div>
     <div id="side" class="sidebar">
-        <div style="padding: 25px; border-bottom: 1px solid #222; background: #000;"><h3 style="color: var(--accent); margin: 0;">CANAIS</h3></div>
+        <div style="padding: 25px; border-bottom: 1px solid #222; background: #000;"><h3 style="color: var(--accent); margin: 0;">LISTA</h3></div>
         <div id="list-body"></div>
     </div>
 
     <script>
         const video = document.getElementById('video');
-        let channels = [];
+        let canais = [];
         let hls = new Hls();
 
-        async function sync() {
-            const link = document.getElementById('url').value;
-            if(!link) return;
-            document.getElementById('btn-s').style.display = 'none';
-            document.getElementById('p-cont').style.display = 'block';
-            const fill = document.getElementById('fill');
-            const status = document.getElementById('status');
+        async function fazerSync() {
+            const url = document.getElementById('iptv-url').value;
+            if(!url) return;
+
+            document.getElementById('btn-sync').style.display = 'none';
+            document.getElementById('loader').style.display = 'block';
+            const bar = document.getElementById('bar');
+            const txt = document.getElementById('status-txt');
 
             try {
+                // Proxy para ler o conteúdo da lista
                 const proxy = "https://api.allorigins.win/raw?url=";
-                const res = await fetch(proxy + encodeURIComponent(link));
-                const text = await res.text();
-                const lines = text.split('\n');
-                
-                for(let i=0; i<lines.length; i++) {
-                    if(lines[i].includes('#EXTINF:')) {
-                        const name = lines[i].split(',').pop().trim();
-                        const url = lines[i+1]?.trim();
-                        if(url && url.startsWith('http')) {
-                            channels.push({name, url});
-                            fill.style.width = Math.min((channels.length / 5), 100) + "%";
-                            status.innerText = "Canais: " + channels.length;
+                const response = await fetch(proxy + encodeURIComponent(url));
+                const reader = response.body.getReader();
+                let decoder = new TextDecoder();
+                let accumulated = '';
+
+                while(true) {
+                    const {done, value} = await reader.read();
+                    if(done || canais.length >= 600) break;
+
+                    accumulated += decoder.decode(value, {stream: true});
+                    let lines = accumulated.split('\n');
+                    accumulated = lines.pop();
+
+                    for(let i=0; i < lines.length; i++) {
+                        if(lines[i].includes('#EXTINF:')) {
+                            const nome = lines[i].split(',').pop().trim();
+                            const link = lines[i+1]?.trim();
+                            if(link && link.startsWith('http')) {
+                                canais.push({nome, link});
+                                bar.style.width = (canais.length / 6) + "%";
+                                txt.innerText = "Carregados: " + canais.length;
+                            }
                         }
                     }
-                    if(channels.length >= 500) break;
                 }
+                
                 setTimeout(() => {
                     document.getElementById('p-sync').style.display = 'none';
                     document.getElementById('p-menu').style.display = 'flex';
-                }, 800);
-            } catch(e) { status.innerText = "Erro no link."; }
+                }, 1000);
+
+            } catch(e) { 
+                txt.innerText = "Erro. Verifique o link e as travas.";
+                document.getElementById('btn-sync').style.display = 'block';
+            }
         }
 
-        function playChannel(url) {
+        function play(url) {
             if (Hls.isSupported()) {
-                hls.destroy(); // Limpa conexão anterior
+                hls.destroy();
                 hls = new Hls();
                 hls.loadSource(url);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    video.muted = false; // Tenta tirar o mudo ao dar play
                     video.play().catch(() => {
-                        video.muted = true; // Se falhar, dá play mudo (exigência do navegador)
+                        video.muted = true; // Força play mudo se o navegador bloquear
                         video.play();
                     });
                 });
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = url;
-                video.play();
             }
         }
 
-        function openChannels() {
+        function abrirLista() {
             document.getElementById('p-menu').style.display = 'none';
             document.getElementById('player-box').style.display = 'block';
             document.getElementById('fab').style.display = 'flex';
             const body = document.getElementById('list-body');
             body.innerHTML = "";
-            channels.forEach(c => {
+            canais.forEach(c => {
                 const item = document.createElement('div');
                 item.className = 'chan-item';
-                item.innerText = "📺 " + c.name;
-                item.onclick = () => { playChannel(c.url); toggleSide(); };
+                item.innerText = "📺 " + c.nome;
+                item.onclick = () => { play(c.link); toggleSide(); };
                 body.appendChild(item);
             });
             toggleSide();
