@@ -2,146 +2,149 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini IPTV Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gemini IPTV Elite</title>
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
     <style>
-        :root { --accent: #ffc107; --bg: #050505; }
-        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; overflow: hidden; }
-        
-        /* Telas */
-        .screen { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
-        .screen.active { display: flex; }
+        :root { --accent: #ffc107; --bg: #000; --card: #111; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
 
-        /* Categorias Iniciais */
-        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; }
-        .menu-card { background: #111; border: 2px solid #222; border-radius: 15px; padding: 30px 10px; text-align: center; font-weight: bold; cursor: pointer; }
-        .menu-card:active { border-color: var(--accent); color: var(--accent); }
+        /* Telas de Navegação */
+        .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        .page.active { display: flex; }
 
-        /* Player e Barra de Progresso */
-        .player-header { width: 100%; background: #000; border-bottom: 2px solid var(--accent); display: none; }
-        .player-header.active { display: block; }
-        .progress-container { width: 100%; height: 5px; background: #222; }
-        .progress-bar { height: 100%; background: var(--accent); width: 0%; transition: 0.3s; }
+        /* Estilo dos Cards de Categoria */
+        .category-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; max-width: 400px; }
+        .cat-card { background: var(--card); border: 2px solid #222; border-radius: 15px; padding: 40px 10px; text-align: center; cursor: pointer; transition: 0.3s; }
+        .cat-card i { display: block; font-size: 30px; margin-bottom: 10px; }
+        .cat-card:active { border-color: var(--accent); color: var(--accent); transform: scale(0.95); }
+
+        /* Área do Player */
+        #player-container { display: none; width: 100%; background: #000; border-bottom: 2px solid var(--accent); position: fixed; top: 0; z-index: 1000; }
+        .video-js { width: 100% !important; height: 210px !important; }
+
+        /* Barra de Sincronismo */
+        .sync-box { width: 85%; text-align: center; }
+        .progress-bg { width: 100%; height: 8px; background: #222; border-radius: 10px; margin: 20px 0; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: 0.3s; box-shadow: 0 0 10px var(--accent); }
 
         /* Menu Lateral de Canais */
-        .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0a0a0a; z-index: 3000; transition: 0.3s; overflow-y: auto; }
+        .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0a0a0a; z-index: 3000; transition: 0.3s; overflow-y: auto; box-shadow: 5px 0 15px rgba(0,0,0,0.8); }
         .sidebar.active { left: 0; }
-        .chan-item { padding: 15px; border-bottom: 1px solid #111; font-size: 14px; display: flex; align-items: center; }
+        .chan-item { padding: 16px; border-bottom: 1px solid #1a1a1a; font-size: 14px; color: #eee; }
+        .chan-item:active { background: #222; color: var(--accent); }
 
-        /* Ícone de Abrir Lista (Flutuante) */
-        #fab-menu { position: fixed; bottom: 20px; right: 20px; background: var(--accent); width: 60px; height: 60px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 30px; color: #000; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 4000; }
+        /* Botão Flutuante (FAB) */
+        .fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 60px; height: 60px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 24px; color: #000; font-weight: bold; z-index: 4000; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
 
-        input { background: #111; border: 1px solid #333; color: white; padding: 15px; width: 80%; border-radius: 10px; margin-bottom: 15px; }
-        .btn { background: var(--accent); border: none; padding: 15px 30px; border-radius: 10px; font-weight: bold; }
+        input { background: #111; border: 1px solid #333; color: white; padding: 15px; width: 100%; border-radius: 10px; box-sizing: border-box; margin-bottom: 15px; }
+        .btn-main { background: var(--accent); border: none; padding: 15px 40px; border-radius: 10px; font-weight: bold; width: 100%; }
     </style>
 </head>
 <body>
 
-    <div id="screen-login" class="screen active">
-        <h1 style="color: var(--accent);">Gemini IPTV</h1>
-        <input type="text" id="iptv-url" placeholder="Cole seu link Olympus aqui...">
-        <button class="btn" onclick="iniciarSincronismo()">SINCRONIZAR</button>
-        <div class="progress-container" style="margin-top: 20px; width: 80%;"><div class="progress-bar" id="bar"></div></div>
-        <p id="status-msg" style="font-size: 12px; margin-top: 10px;"></p>
-    </div>
-
-    <div id="screen-cats" class="screen">
-        <h2 style="margin-bottom: 30px;">Escolha uma Categoria</h2>
-        <div class="menu-grid">
-            <div class="menu-card" onclick="abrirCanais()">📺<br>CANAIS TV</div>
-            <div class="menu-card" onclick="alert('Filmes em breve!')">🎬<br>FILMES</div>
-            <div class="menu-card" onclick="alert('Séries em breve!')">🍿<br>SÉRIES</div>
-            <div class="menu-card" onclick="location.reload()">🔄<br>SAIR</div>
+    <div id="page-login" class="page active">
+        <div class="sync-box">
+            <h1 style="color: var(--accent); margin-bottom: 30px;">GEMINI IPTV</h1>
+            <input type="text" id="url-input" placeholder="Cole o link Olympus aqui...">
+            <button class="btn-main" onclick="startSync()">SINCRONIZAR</button>
+            <div class="progress-bg"><div id="bar" class="progress-fill"></div></div>
+            <p id="status-txt" style="font-size: 12px; color: #666;"></p>
         </div>
     </div>
 
-    <div id="player-view" style="display: none; height: 100vh;">
-        <div class="player-header active">
-            <video id="vid" class="video-js vjs-16-9 vjs-big-play-centered" controls playsinline></video>
-        </div>
-        <div id="msg-placeholder" style="flex: 1; display: flex; align-items: center; justify-content: center; color: #444;">
-            Toque no ícone ☰ para escolher um canal
+    <div id="page-menu" class="page">
+        <h2 style="margin-bottom: 30px;">Escolha a Categoria</h2>
+        <div class="category-grid">
+            <div class="cat-card" onclick="goToChannels()"><span>📺</span><br>CANAIS</div>
+            <div class="cat-card" onclick="alert('Filmes em breve')"><span>🎬</span><br>FILMES</div>
+            <div class="cat-card" onclick="alert('Séries em breve')"><span>🍿</span><br>SÉRIES</div>
+            <div class="cat-card" onclick="location.reload()"><span>🔄</span><br>LOGOUT</div>
         </div>
     </div>
 
-    <div id="fab-menu" onclick="toggleSidebar()">☰</div>
+    <div id="player-container">
+        <video id="main-video" class="video-js vjs-16-9 vjs-big-play-centered" controls playsinline></video>
+    </div>
+
+    <div id="menu-fab" class="fab" onclick="toggleSidebar()">☰</div>
+
     <div id="sidebar" class="sidebar">
-        <div style="padding: 20px; border-bottom: 1px solid #222; background: #000;">
-            <h3 style="color: var(--accent); margin: 0;">CANAIS DISPONÍVEIS</h3>
+        <div style="padding: 25px; background: #000; border-bottom: 1px solid #222;">
+            <h3 style="color: var(--accent); margin: 0;">LISTA DE CANAIS</h3>
         </div>
-        <div id="lista-corpo"></div>
+        <div id="channel-list"></div>
     </div>
 
     <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
     <script>
-        const player = videojs('vid');
-        let listaGlobal = [];
+        const player = videojs('main-video', {
+            html5: { hls: { overrideNative: true }, nativeVideoTracks: false }
+        });
+        
+        let db = [];
 
-        function showScreen(id) {
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-            if(id === 'player-view') {
-                document.getElementById('screen-cats').style.display = 'none';
-                document.getElementById(id).style.display = 'flex';
-                document.getElementById('fab-menu').style.display = 'flex';
-            } else {
-                document.getElementById(id).classList.add('active');
-            }
+        function switchPage(id) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
         }
 
-        async function iniciarSincronismo() {
-            const url = document.getElementById('iptv-url').value;
+        async function startSync() {
+            const url = document.getElementById('url-input').value;
             if(!url) return;
             const bar = document.getElementById('bar');
-            const msg = document.getElementById('status-msg');
+            const txt = document.getElementById('status-txt');
 
             try {
                 const proxy = "https://api.allorigins.win/raw?url=";
-                const res = await fetch(proxy + encodeURIComponent(url));
-                const reader = res.body.getReader();
+                const response = await fetch(proxy + encodeURIComponent(url));
+                const reader = response.body.getReader();
                 let decoder = new TextDecoder();
-                let full = '';
+                let accumulated = '';
 
                 while(true) {
                     const {done, value} = await reader.read();
-                    if(done || listaGlobal.length >= 600) break;
-                    full += decoder.decode(value, {stream: true});
-                    const lines = full.split('\n');
-                    full = lines.pop();
+                    if(done || db.length >= 600) break;
+                    accumulated += decoder.decode(value, {stream: true});
+                    let lines = accumulated.split('\n');
+                    accumulated = lines.pop();
 
                     for(let i=0; i<lines.length; i++) {
                         if(lines[i].includes('#EXTINF:')) {
-                            const nome = lines[i].split(',').pop().trim();
+                            const name = lines[i].split(',').pop().trim();
                             const link = lines[i+1]?.trim();
                             if(link && link.startsWith('http')) {
-                                listaGlobal.push({nome, link});
-                                bar.style.width = (listaGlobal.length / 6) + "%";
+                                db.push({name, link});
+                                bar.style.width = (db.length / 6) + "%";
                             }
                         }
                     }
                 }
-                msg.innerHTML = "✅ Sincronizado!";
-                setTimeout(() => showScreen('screen-cats'), 1000);
-            } catch(e) { msg.innerHTML = "❌ Erro. Resete as travas no painel."; }
+                txt.innerText = "✅ Sincronizado!";
+                setTimeout(() => switchPage('page-menu'), 800);
+            } catch(e) { txt.innerText = "❌ Erro. Resete as travas no painel."; }
         }
 
-        function abrirCanais() {
-            showScreen('player-view');
-            const corpo = document.getElementById('lista-corpo');
-            corpo.innerHTML = "";
-            listaGlobal.forEach(c => {
+        function goToChannels() {
+            switchPage('page-menu'); // Oculta menu
+            document.getElementById('page-menu').style.display = 'none';
+            document.getElementById('player-container').style.display = 'block';
+            document.getElementById('menu-fab').style.display = 'flex';
+            
+            const list = document.getElementById('channel-list');
+            list.innerHTML = "";
+            db.forEach(c => {
                 const item = document.createElement('div');
                 item.className = 'chan-item';
-                item.innerHTML = "📺 " + c.nome;
+                item.innerText = "📺 " + c.name;
                 item.onclick = () => {
-                    player.pause();
                     player.src({ src: c.link, type: 'application/x-mpegURL' });
                     player.play();
                     toggleSidebar();
-                    document.getElementById('msg-placeholder').style.display = 'none';
                 };
-                corpo.appendChild(item);
+                list.appendChild(item);
             });
+            toggleSidebar();
         }
 
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); }
