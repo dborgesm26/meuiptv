@@ -3,58 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini IPTV Ultra</title>
+    <title>Gemini IPTV Gold</title>
     <script src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
     <style>
         :root { --accent: #ffc107; --bg: #000; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; overflow: hidden; }
-        .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
         .page.active { display: flex; }
         
-        /* Barra Amarela */
-        .loader { width: 80%; display: none; margin-top: 20px; }
-        .p-bg { width: 100%; height: 10px; background: #222; border-radius: 5px; overflow: hidden; }
-        .p-fill { height: 100%; background: var(--accent); width: 0%; transition: 0.3s; }
+        /* BARRA DE PROGRESSO AMARELA - CORRIGIDA */
+        .sync-area { width: 85%; display: none; margin-top: 20px; }
+        .p-bg { width: 100%; height: 12px; background: #222; border-radius: 6px; overflow: hidden; border: 1px solid #333; }
+        .p-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; box-shadow: 0 0 10px var(--accent); }
+        #count { margin-top: 10px; color: var(--accent); font-weight: bold; font-size: 14px; }
 
         .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; }
-        .cat-card { background: #111; border: 2px solid #222; border-radius: 12px; padding: 35px 10px; cursor: pointer; }
-        
-        /* Container do Player */
-        #player-wrapper { display: none; width: 100%; height: 215px; background: #000; position: fixed; top: 0; z-index: 1000; border-bottom: 2px solid var(--accent); }
+        .cat-card { background: #111; border: 2px solid #222; border-radius: 12px; padding: 35px 5px; text-align: center; cursor: pointer; }
+        .cat-card:active { border-color: var(--accent); color: var(--accent); }
+
+        /* PLAYER WRAPPER */
+        #player-box { display: none; width: 100%; height: 215px; background: #000; position: fixed; top: 0; z-index: 1000; border-bottom: 2px solid var(--accent); }
 
         .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0a0a0a; z-index: 3000; transition: 0.3s; overflow-y: auto; }
         .sidebar.active { left: 0; }
         .chan-item { padding: 18px; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
 
-        #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 65px; height: 65px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 30px; color: #000; z-index: 4000; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        
+        #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 65px; height: 65px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 30px; color: #000; z-index: 4000; }
+
         input { background: #111; border: 1px solid #333; color: white; padding: 15px; width: 80%; border-radius: 10px; margin-bottom: 15px; }
-        .btn { background: var(--accent); border: none; padding: 15px 30px; border-radius: 10px; font-weight: bold; width: 80%; }
+        .btn-sync { background: var(--accent); border: none; padding: 15px 30px; border-radius: 10px; font-weight: bold; width: 85%; }
     </style>
 </head>
 <body>
 
     <div id="p-sync" class="page active">
         <h1 style="color: var(--accent);">GEMINI IPTV</h1>
-        <input type="text" id="iptv-url" placeholder="Cole seu link Olympus...">
-        <button class="btn" id="btn-sync" onclick="fazerSync()">SINCRONIZAR</button>
-        <div class="loader" id="loader">
+        <input type="text" id="url" placeholder="Cole o link Olympus aqui...">
+        <button class="btn-sync" id="b-start" onclick="iniciar()">SINCRONIZAR</button>
+        
+        <div class="sync-area" id="s-area">
             <div class="p-bg"><div id="bar" class="p-fill"></div></div>
-            <p id="status-txt" style="margin-top: 10px; color: var(--accent);">Lendo lista...</p>
+            <div id="count">Capturando canais... 0</div>
         </div>
     </div>
 
     <div id="p-menu" class="page">
+        <h2 style="margin-bottom: 20px;">Categorias</h2>
         <div class="cat-grid">
-            <div class="cat-card" onclick="abrirLista()">📺<br>CANAIS</div>
+            <div class="cat-card" onclick="irCanais()">📺<br>CANAIS</div>
             <div class="cat-card" onclick="alert('Filmes em breve')">🎬<br>FILMES</div>
             <div class="cat-card" onclick="alert('Séries em breve')">🍿<br>SÉRIES</div>
             <div class="cat-card" onclick="location.reload()">🔄<br>SAIR</div>
         </div>
     </div>
 
-    <div id="player-wrapper"></div>
-    
+    <div id="player-box"></div>
     <div id="fab" onclick="toggleSide()">☰</div>
     <div id="side" class="sidebar">
         <div style="padding: 25px; border-bottom: 1px solid #222; background: #000;"><h3 style="color: var(--accent); margin: 0;">LISTA DE CANAIS</h3></div>
@@ -63,50 +66,84 @@
 
     <script>
         let canais = [];
-        let player;
+        let clapprPlayer;
 
-        async function fazerSync() {
-            const url = document.getElementById('iptv-url').value;
-            if(!url) return;
-            document.getElementById('btn-sync').style.display = 'none';
-            document.getElementById('loader').style.display = 'block';
+        async function iniciar() {
+            const link = document.getElementById('url').value;
+            if(!link) return;
+
+            document.getElementById('b-start').style.display = 'none';
+            document.getElementById('s-area').style.display = 'block';
             const bar = document.getElementById('bar');
-            const txt = document.getElementById('status-txt');
+            const txt = document.getElementById('count');
 
             try {
                 const proxy = "https://api.allorigins.win/raw?url=";
-                const response = await fetch(proxy + encodeURIComponent(url));
-                const text = await response.text();
-                const lines = text.split('\n');
+                const res = await fetch(proxy + encodeURIComponent(link));
+                const reader = res.body.getReader();
+                let decoder = new TextDecoder();
+                let full = '';
 
-                for(let i=0; i < lines.length; i++) {
-                    if(lines[i].includes('#EXTINF:')) {
-                        const nome = lines[i].split(',').pop().trim();
-                        const link = lines[i+1]?.trim();
-                        if(link && link.startsWith('http')) {
-                            canais.push({nome, link});
-                            bar.style.width = Math.min((canais.length / 6), 100) + "%";
-                            txt.innerText = "Canais: " + canais.length;
+                while(true) {
+                    const {done, value} = await reader.read();
+                    if(done || canais.length >= 700) break;
+
+                    full += decoder.decode(value, {stream: true});
+                    let lines = full.split('\n');
+                    full = lines.pop();
+
+                    for(let i=0; i<lines.length; i++) {
+                        if(lines[i].includes('#EXTINF:')) {
+                            const nome = lines[i].split(',').pop().trim();
+                            const url = lines[i+1]?.trim();
+                            if(url && url.startsWith('http')) {
+                                canais.push({nome, url});
+                                // Barra de progresso baseada em 700 canais
+                                bar.style.width = (canais.length / 7) + "%";
+                                txt.innerText = "Canais encontrados: " + canais.length;
+                            }
                         }
                     }
-                    if(canais.length >= 600) break;
                 }
+                txt.innerText = "✅ " + canais.length + " Canais Prontos!";
                 setTimeout(() => {
                     document.getElementById('p-sync').style.display = 'none';
                     document.getElementById('p-menu').style.display = 'flex';
-                }, 800);
-            } catch(e) { txt.innerText = "Erro no link ou travas."; }
+                }, 1000);
+            } catch(e) { txt.innerText = "Erro. Verifique as travas no painel."; }
         }
 
-        function playCanal(url) {
-            // Se o player já existe, destrói para criar um novo e evitar erros de conexão
-            if (player) player.destroy();
-
-            player = new Clappr.Player({
+        function play(url) {
+            if (clapprPlayer) clapprPlayer.destroy();
+            document.getElementById('player-box').style.display = 'block';
+            
+            clapprPlayer = new Clappr.Player({
                 source: url,
-                parentId: "#player-wrapper",
-                autoPlay: true, // Reprodução Automática
-                mute: false,
+                parentId: "#player-box",
+                autoPlay: true,
                 width: '100%',
                 height: '100%',
-                preload: '
+                mediacontrol: {seekbar: "#ffc107", buttons: "#ffc107"},
+                mimeType: "application/x-mpegURL"
+            });
+        }
+
+        function irCanais() {
+            document.getElementById('p-menu').style.display = 'none';
+            document.getElementById('fab').style.display = 'flex';
+            const body = document.getElementById('list-body');
+            body.innerHTML = "";
+            canais.forEach(c => {
+                const d = document.createElement('div');
+                d.className = 'chan-item';
+                d.innerText = "📺 " + c.nome;
+                d.onclick = () => { play(c.url); toggleSide(); };
+                body.appendChild(d);
+            });
+            toggleSide();
+        }
+
+        function toggleSide() { document.getElementById('side').classList.toggle('active'); }
+    </script>
+</body>
+</html>
