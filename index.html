@@ -3,199 +3,156 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini IBO Ultimate</title>
+    <title>Gemini IBO Pro - Ultra Fast</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         :root { --accent: #ffc107; --bg: #000; --card: #121212; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
+        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; overflow: hidden; }
         .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
         .page.active { display: flex; }
 
-        /* Tela de Sincronismo Profissional */
-        .login-container { width: 85%; max-width: 400px; text-align: center; }
-        input { background: #1a1a1a; border: 1px solid #333; color: white; padding: 18px; width: 100%; border-radius: 12px; margin-bottom: 15px; box-sizing: border-box; outline: none; }
-        .btn-sync { background: var(--accent); color: black; border: none; padding: 18px; width: 100%; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; }
+        /* Login e Sincronismo */
+        .box { width: 90%; max-width: 400px; text-align: center; }
+        input { background: #1a1a1a; border: 1px solid #333; color: white; padding: 18px; width: 100%; border-radius: 12px; margin-bottom: 15px; box-sizing: border-box; }
+        .btn { background: var(--accent); color: #000; border: none; padding: 18px; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; }
 
-        /* BARRA DE PROCESSAMENTO AMARELA */
+        /* BARRA E CONTADOR */
         .sync-area { width: 100%; display: none; margin-top: 30px; }
-        .p-bg { width: 100%; height: 12px; background: #222; border-radius: 10px; overflow: hidden; border: 1px solid #333; }
-        .p-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.1s; box-shadow: 0 0 20px var(--accent); }
-        #count-label { margin-top: 15px; color: var(--accent); font-weight: bold; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        .bar-bg { width: 100%; height: 14px; background: #222; border-radius: 10px; overflow: hidden; }
+        .bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.1s; box-shadow: 0 0 15px var(--accent); }
+        #status-txt { margin-top: 15px; color: var(--accent); font-weight: bold; font-size: 16px; }
 
-        /* Dashboard Estilo IBO Player */
-        .ibo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 95%; max-width: 500px; }
-        .ibo-card { background: var(--card); border: 1px solid #222; border-radius: 18px; padding: 40px 10px; cursor: pointer; position: relative; transition: 0.3s; }
-        .ibo-card:active { transform: scale(0.95); border-color: var(--accent); }
-        .ibo-card b { display: block; margin-top: 12px; font-size: 13px; color: #eee; }
-        .badge { position: absolute; top: 15px; right: 15px; background: var(--accent); color: black; font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: bold; }
+        /* Dashboard */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 95%; }
+        .card { background: var(--card); border: 1px solid #222; border-radius: 15px; padding: 35px 10px; text-align: center; position: relative; }
+        .badge { position: absolute; top: 10px; right: 10px; background: var(--accent); color: #000; font-size: 11px; padding: 3px 7px; border-radius: 5px; font-weight: bold; }
 
-        /* Player UI */
-        #player-ui { display: none; width: 100%; height: 235px; background: #000; position: fixed; top: 0; z-index: 1000; border-bottom: 2px solid var(--accent); }
+        /* Player */
+        #player-ui { display: none; width: 100%; height: 230px; background: #000; position: fixed; top: 0; z-index: 1000; border-bottom: 2px solid var(--accent); }
         video { width: 100%; height: 100%; }
 
-        .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #080808; z-index: 3000; transition: 0.4s; overflow-y: auto; }
+        .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0a0a0a; z-index: 3000; transition: 0.3s; overflow-y: auto; }
         .sidebar.active { left: 0; }
-        .chan-item { padding: 20px; border-bottom: 1px solid #111; font-size: 14px; color: #999; text-align: left; }
-        .chan-item:active { background: #1a1a1a; color: var(--accent); }
+        .item { padding: 20px; border-bottom: 1px solid #111; font-size: 14px; color: #999; }
 
-        #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 70px; height: 70px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 35px; color: #000; z-index: 4000; box-shadow: 0 8px 25px rgba(0,0,0,0.7); }
+        #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 65px; height: 65px; border-radius: 50%; display: none; align-items: center; justify-content: center; color: #000; font-size: 30px; z-index: 4000; }
     </style>
 </head>
 <body>
 
     <div id="p-sync" class="page active">
-        <div class="login-container">
-            <h1 style="color: var(--accent); font-size: 32px; margin-bottom: 5px;">IBO PLAYER</h1>
-            <p style="color: #555; margin-bottom: 40px;">ULTIMATE FAST SYNC</p>
-            
-            <input type="text" id="m3u-url" placeholder="URL da Lista (Olympus)">
-            <button class="btn-sync" id="btn-go" onclick="startSync()">CONECTAR E SINCRONIZAR</button>
-            
+        <div class="box">
+            <h1 style="color: var(--accent);">IBO PLAYER</h1>
+            <input type="text" id="iptv-url" placeholder="URL M3U Olympus">
+            <button class="btn" id="btn-go" onclick="turboSync()">CONECTAR E PROCESSAR</button>
             <div class="sync-area" id="loader">
-                <div class="p-bg"><div id="bar" class="p-fill"></div></div>
-                <div id="count-label">Iniciando captura...</div>
+                <div class="bar-bg"><div id="bar" class="bar-fill"></div></div>
+                <div id="status-txt">Iniciando...</div>
             </div>
         </div>
     </div>
 
     <div id="p-home" class="page">
-        <div class="ibo-grid">
-            <div class="ibo-card" onclick="openCat('canais')">
-                <div class="badge" id="n-c">0</div>
-                <span>📺</span><b>TV AO VIVO</b>
-            </div>
-            <div class="ibo-card" onclick="openCat('filmes')">
-                <div class="badge" id="n-f">0</div>
-                <span>🎬</span><b>FILMES</b>
-            </div>
-            <div class="ibo-card" onclick="openCat('series')">
-                <div class="badge" id="n-s">0</div>
-                <span>🍿</span><b>SÉRIES</b>
-            </div>
-            <div class="ibo-card" onclick="location.reload()">
-                <span>🔄</span><b>RELOGAR</b>
-            </div>
+        <div class="grid">
+            <div class="card" onclick="abrirCat('canais')"><div class="badge" id="c-c">0</div>📺<br>LIVE TV</div>
+            <div class="card" onclick="abrirCat('filmes')"><div class="badge" id="c-f">0</div>🎬<br>FILMES</div>
+            <div class="card" onclick="abrirCat('series')"><div class="badge" id="c-s">0</div>🍿<br>SÉRIES</div>
+            <div class="card" onclick="location.reload()">🔄<br>LOGOUT</div>
         </div>
     </div>
 
     <div id="player-ui"><video id="video" controls playsinline></video></div>
     <div id="fab" onclick="toggleNav()">☰</div>
-    <div id="side-nav" class="sidebar">
-        <div id="side-title" style="padding: 30px; background: #000; color: var(--accent); font-weight: bold; border-bottom: 1px solid #222; font-size: 18px;">MENU</div>
+    <div id="side" class="sidebar">
+        <div id="side-title" style="padding: 25px; background: #000; color: var(--accent); font-weight: bold; border-bottom: 1px solid #222;">LISTA</div>
         <div id="list-container"></div>
     </div>
 
     <script>
-        let coreData = { canais: [], filmes: [], series: [] };
-        let hlsEngine = new Hls({
-            enableWorker: true,
-            lowLatencyMode: true,
-            backBufferLength: 30
-        });
+        let db = { canais: [], filmes: [], series: [] };
+        let hls = new Hls({ enableWorker: true });
 
-        async function startSync() {
-            const url = document.getElementById('m3u-url').value;
+        async function turboSync() {
+            const url = document.getElementById('iptv-url').value;
             if(!url) return;
 
             document.getElementById('btn-go').style.display = 'none';
             document.getElementById('loader').style.display = 'block';
             const bar = document.getElementById('bar');
-            const label = document.getElementById('count-label');
+            const status = document.getElementById('status-txt');
 
             try {
                 const proxy = "https://api.allorigins.win/raw?url=";
                 const response = await fetch(proxy + encodeURIComponent(url));
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
-                let partialBuffer = '';
+                let acc = '';
                 let total = 0;
 
                 while(true) {
                     const {done, value} = await reader.read();
                     if(done) break;
 
-                    partialBuffer += decoder.decode(value, {stream: true});
-                    let lines = partialBuffer.split('\n');
-                    partialBuffer = lines.pop();
+                    acc += decoder.decode(value, {stream: true});
+                    const regex = /#EXTINF:.*?,(.*?)\n(http.*?)(?=\n#|$)/g;
+                    let m;
 
-                    for(let i=0; i < lines.length; i++) {
-                        if(lines[i].includes('#EXTINF:')) {
-                            const infoLine = lines[i];
-                            const linkLine = lines[i+1]?.trim();
-                            
-                            if(linkLine && linkLine.startsWith('http')) {
-                                total++;
-                                const name = infoLine.split(',').pop().trim();
-                                const upperName = name.toUpperCase();
-                                
-                                if(upperName.includes('SÉRIE') || upperName.includes('SERIE') || linkLine.includes('series')) {
-                                    coreData.series.push({n: name, u: linkLine});
-                                } else if(linkLine.includes('movie') || upperName.includes('FILME') || upperName.includes('2025')) {
-                                    coreData.filmes.push({n: name, u: linkLine});
-                                } else {
-                                    coreData.canais.push({n: name, u: linkLine});
-                                }
-                                
-                                // BARRA E CONTADOR EM TEMPO REAL
-                                bar.style.width = (total % 100) + "%";
-                                label.innerText = "Capturando: " + total + " Itens";
-                            }
-                        }
+                    while ((m = regex.exec(acc)) !== null) {
+                        total++;
+                        const n = m[1].trim();
+                        const u = m[2].trim();
+                        const nU = n.toUpperCase();
+
+                        if(nU.includes('SERIE') || u.includes('series')) db.series.push({n, u});
+                        else if(u.includes('movie') || nU.includes('FILME')) db.filmes.push({n, u});
+                        else db.canais.push({n, u});
+
+                        // Barra amarela e contador em tempo real
+                        bar.style.width = (total % 100) + "%";
+                        status.innerText = "Capturando: " + total;
+                        
+                        // Limpa o buffer para manter a velocidade
+                        if(total % 500 === 0) acc = acc.substring(m.index);
                     }
                 }
                 
-                // Finaliza carregamento
-                document.getElementById('n-c').innerText = coreData.canais.length;
-                document.getElementById('n-f').innerText = coreData.filmes.length;
-                document.getElementById('n-s').innerText = coreData.series.length;
-                
-                setTimeout(() => {
-                    document.getElementById('p-sync').classList.remove('active');
-                    document.getElementById('p-home').classList.add('active');
-                }, 1000);
-
-            } catch(e) { label.innerText = "ERRO: Verifique seu link."; }
+                finalizar();
+            } catch(e) { status.innerText = "Erro ao ler lista."; }
         }
 
-        function playStream(url) {
+        function finalizar() {
+            document.getElementById('c-c').innerText = db.canais.length;
+            document.getElementById('c-f').innerText = db.filmes.length;
+            document.getElementById('c-s').innerText = db.series.length;
+            document.getElementById('p-sync').classList.remove('active');
+            document.getElementById('p-home').classList.add('active');
+        }
+
+        function play(u) {
             document.getElementById('player-ui').style.display = 'block';
             const v = document.getElementById('video');
-            
-            if (Hls.isSupported()) {
-                hlsEngine.destroy();
-                hlsEngine = new Hls();
-                hlsEngine.loadSource(url);
-                hlsEngine.attachMedia(v);
-                hlsEngine.on(Hls.Events.MANIFEST_PARSED, () => {
-                    v.play().catch(() => { v.muted = true; v.play(); });
-                });
-            } else {
-                v.src = url;
-                v.play();
-            }
+            if (hls) hls.destroy();
+            hls = new Hls();
+            hls.loadSource(u); hls.attachMedia(v);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => v.play());
         }
 
-        function openCat(cat) {
+        function abrirCat(cat) {
             document.getElementById('p-home').classList.remove('active');
             document.getElementById('fab').style.display = 'flex';
-            document.getElementById('side-title').innerText = cat.toUpperCase();
-            
-            const container = document.getElementById('list-container');
-            container.innerHTML = "";
-            
-            const fragment = document.createDocumentFragment();
-            coreData[cat].forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'chan-item';
-                div.innerText = "▶ " + item.n;
-                div.onclick = () => { playStream(item.u); toggleNav(); };
-                fragment.appendChild(div);
+            const cont = document.getElementById('list-container');
+            cont.innerHTML = "";
+            db[cat].forEach(item => {
+                const d = document.createElement('div');
+                d.className = 'item';
+                d.innerText = "▶ " + item.n;
+                d.onclick = () => { play(item.u); toggleNav(); };
+                cont.appendChild(d);
             });
-            container.appendChild(fragment);
             toggleNav();
         }
 
-        function toggleNav() { document.getElementById('side-nav').classList.toggle('active'); }
+        function toggleNav() { document.getElementById('side').classList.toggle('active'); }
     </script>
 </body>
 </html>
