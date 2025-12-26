@@ -3,32 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini IPTV v8</title>
+    <title>Gemini IPTV v9</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         :root { --accent: #ffc107; --bg: #000; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; overflow: hidden; }
-        .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
         .page.active { display: flex; }
-        
-        /* Barra de Progresso Amarela */
         .loader { width: 80%; display: none; margin-top: 20px; }
         .p-bg { width: 100%; height: 10px; background: #222; border-radius: 5px; overflow: hidden; }
         .p-fill { height: 100%; background: var(--accent); width: 0%; transition: 0.3s; }
-
         .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; }
-        .cat-card { background: #111; border: 2px solid #222; border-radius: 12px; padding: 35px 10px; cursor: pointer; font-weight: bold; }
-        
-        /* Player Box */
+        .cat-card { background: #111; border: 2px solid #222; border-radius: 12px; padding: 35px 10px; cursor: pointer; text-align: center; }
         #player-box { display: none; width: 100%; position: fixed; top: 0; z-index: 1000; background: #000; border-bottom: 2px solid var(--accent); }
         video { width: 100%; height: 215px; background: #000; }
-
         .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0a0a0a; z-index: 3000; transition: 0.3s; overflow-y: auto; }
         .sidebar.active { left: 0; }
         .chan-item { padding: 16px; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
-
         #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 60px; height: 60px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 25px; color: #000; z-index: 4000; }
-        
         input { background: #111; border: 1px solid #333; color: white; padding: 15px; width: 80%; border-radius: 10px; margin-bottom: 15px; }
         .btn { background: var(--accent); border: none; padding: 15px 30px; border-radius: 10px; font-weight: bold; width: 80%; }
     </style>
@@ -37,46 +29,44 @@
 
     <div id="p-sync" class="page active">
         <h1 style="color: var(--accent);">GEMINI IPTV</h1>
-        <input type="text" id="iptv-url" placeholder="Cole o link Olympus aqui...">
+        <input type="text" id="iptv-url" placeholder="Link Olympus...">
         <button class="btn" id="btn-sync" onclick="fazerSync()">SINCRONIZAR</button>
         <div class="loader" id="loader">
             <div class="p-bg"><div id="bar" class="p-fill"></div></div>
-            <p id="status-txt" style="margin-top: 10px; color: var(--accent);">Iniciando...</p>
+            <p id="status-txt" style="margin-top: 10px; color: var(--accent);">Lendo canais...</p>
         </div>
     </div>
 
     <div id="p-menu" class="page">
         <div class="cat-grid">
             <div class="cat-card" onclick="abrirLista()">📺<br>CANAIS</div>
-            <div class="cat-card" onclick="alert('Brevemente')">🎬<br>FILMES</div>
-            <div class="cat-card" onclick="alert('Brevemente')">🍿<br>SÉRIES</div>
-            <div class="cat-card" onclick="location.reload()">🔄<br>LOGOUT</div>
+            <div class="cat-card" onclick="alert('Filmes em breve')">🎬<br>FILMES</div>
+            <div class="cat-card" onclick="alert('Séries em breve')">🍿<br>SÉRIES</div>
+            <div class="cat-card" onclick="location.reload()">🔄<br>SAIR</div>
         </div>
     </div>
 
     <div id="player-box"><video id="video" controls playsinline></video></div>
     <div id="fab" onclick="toggleSide()">☰</div>
     <div id="side" class="sidebar">
-        <div style="padding: 25px; border-bottom: 1px solid #222; background: #000;"><h3 style="color: var(--accent); margin: 0;">LISTA</h3></div>
+        <div style="padding: 25px; border-bottom: 1px solid #222; background: #000;"><h3 style="color: var(--accent); margin: 0;">LISTA DE CANAIS</h3></div>
         <div id="list-body"></div>
     </div>
 
     <script>
         const video = document.getElementById('video');
         let canais = [];
-        let hls = new Hls();
+        let hls = null;
 
         async function fazerSync() {
             const url = document.getElementById('iptv-url').value;
             if(!url) return;
-
             document.getElementById('btn-sync').style.display = 'none';
             document.getElementById('loader').style.display = 'block';
             const bar = document.getElementById('bar');
             const txt = document.getElementById('status-txt');
 
             try {
-                // Proxy para ler o conteúdo da lista
                 const proxy = "https://api.allorigins.win/raw?url=";
                 const response = await fetch(proxy + encodeURIComponent(url));
                 const reader = response.body.getReader();
@@ -86,11 +76,9 @@
                 while(true) {
                     const {done, value} = await reader.read();
                     if(done || canais.length >= 600) break;
-
                     accumulated += decoder.decode(value, {stream: true});
                     let lines = accumulated.split('\n');
                     accumulated = lines.pop();
-
                     for(let i=0; i < lines.length; i++) {
                         if(lines[i].includes('#EXTINF:')) {
                             const nome = lines[i].split(',').pop().trim();
@@ -98,34 +86,53 @@
                             if(link && link.startsWith('http')) {
                                 canais.push({nome, link});
                                 bar.style.width = (canais.length / 6) + "%";
-                                txt.innerText = "Carregados: " + canais.length;
+                                txt.innerText = "Canais: " + canais.length;
                             }
                         }
                     }
                 }
-                
                 setTimeout(() => {
                     document.getElementById('p-sync').style.display = 'none';
                     document.getElementById('p-menu').style.display = 'flex';
-                }, 1000);
-
-            } catch(e) { 
-                txt.innerText = "Erro. Verifique o link e as travas.";
-                document.getElementById('btn-sync').style.display = 'block';
-            }
+                }, 800);
+            } catch(e) { txt.innerText = "Erro de Sincronismo."; }
         }
 
         function play(url) {
+            if (hls) hls.destroy();
+            
             if (Hls.isSupported()) {
-                hls.destroy();
-                hls = new Hls();
+                hls = new Hls({
+                    debug: false,
+                    enableWorker: true,
+                    lowLatencyMode: true,
+                    backBufferLength: 60
+                });
                 hls.loadSource(url);
                 hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
                     video.play().catch(() => {
-                        video.muted = true; // Força play mudo se o navegador bloquear
+                        // Se o navegador bloquear o play automático, tenta com mudo
+                        video.muted = true;
                         video.play();
                     });
+                });
+                
+                // Tenta recuperar em caso de erro de rede
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                hls.destroy();
+                                break;
+                        }
+                    }
                 });
             }
         }
