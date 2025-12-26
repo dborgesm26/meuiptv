@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gemini IPTV Pro</title>
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+    <style>
+        :root { --primary: #ffc107; --bg: #000; }
+        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; text-align: center; }
+        #splash { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .loader { width: 40px; height: 40px; border: 4px solid #222; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .app-container { max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; min-height: 100vh; }
+        .player-section { position: sticky; top: 0; z-index: 1000; background: #000; width: 100%; border-bottom: 2px solid #222; }
+        #main-player { width: 100% !important; max-height: 220px; }
+        .channel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; }
+        .card { background: #111; border-radius: 12px; padding: 12px 5px; display: flex; flex-direction: column; align-items: center; border: 1px solid #222; }
+        .card img { width: 50px; height: 50px; object-fit: contain; margin-bottom: 8px; }
+        .card-name { font-size: 10px; height: 2.5em; overflow: hidden; color: #ddd; line-height: 1.2; }
+        .setup-bar { padding: 10px; background: #111; display: flex; gap: 5px; }
+        input { flex: 1; background: #000; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="splash">
+        <h1 style="color: var(--primary)">Gemini IPTV Pro</h1>
+        <div class="loader"></div>
+        <p>Sistema Ativado</p>
+    </div>
+
+    <div class="app-container">
+        <div class="player-section">
+            <video id="main-player" class="video-js vjs-16-9 vjs-big-play-centered" controls playsinline></video>
+        </div>
+
+        <div class="setup-bar">
+            <input type="text" id="m3u-url" placeholder="Cole o link M3U aqui...">
+            <button onclick="carregarLinkExterno()" style="background:var(--primary); border:none; padding:8px; border-radius:5px; font-weight:bold;">CARREGAR</button>
+        </div>
+
+        <h3 style="color: var(--primary); margin-top: 15px;">Canais de Teste (Integrados)</h3>
+        <main id="channel-list" class="channel-grid"></main>
+    </div>
+
+    <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+    <script>
+        const player = videojs('main-player');
+
+        // CANAIS QUE JÁ VÊM NO CÓDIGO (Não precisam de download)
+        const canaisTeste = [
+            { nome: "Big Buck Bunny (HLS)", url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", logo: "https://upload.wikimedia.org/wikipedia/commons/c/c5/Big_buck_bunny_poster_full.jpg" },
+            { nome: "Canal de Teste 2", url: "https://diceyk6a7e56.cloudfront.net/out/v1/498934f2604e427eb32635956792f44c/index.m3u8", logo: "https://via.placeholder.com/50" },
+            { nome: "Amostra HLS 3", url: "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8", logo: "https://via.placeholder.com/50" }
+        ];
+
+        function render(lista) {
+            const container = document.getElementById('channel-list');
+            container.innerHTML = "";
+            lista.forEach(c => {
+                const card = document.createElement('div');
+                card.className = "card";
+                card.innerHTML = `<img src="${c.logo}"><div class="card-name">${c.nome}</div>`;
+                card.onclick = () => {
+                    player.src({ src: c.url, type: 'application/x-mpegURL' });
+                    player.play();
+                };
+                container.appendChild(card);
+            });
+        }
+
+        async function carregarLinkExterno() {
+            const url = document.getElementById('m3u-url').value.trim();
+            if(!url) return;
+            alert("A tentar contornar bloqueio do navegador...");
+            // Tenta usar o Proxy do AllOrigins
+            try {
+                const res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(url));
+                const text = await res.text();
+                if(text.includes("#EXTM3U")) {
+                    alert("Sucesso! Canais carregados.");
+                    processarM3U(text);
+                }
+            } catch(e) {
+                alert("O seu telemóvel continua a bloquear links externos. Use os canais de teste abaixo.");
+            }
+        }
+
+        function processarM3U(data) {
+            const lines = data.split('\n');
+            const novosCanais = [];
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].startsWith('#EXTINF:')) {
+                    const nome = lines[i].split(',')[1]?.trim() || "Canal";
+                    const link = lines[i+1]?.trim();
+                    if(link) novosCanais.push({ nome, url: link, logo: "https://via.placeholder.com/50" });
+                }
+            }
+            render(novosCanais);
+        }
+
+        window.onload = () => {
+            render(canaisTeste);
+            setTimeout(() => document.getElementById('splash').style.display = 'none', 1500);
+        };
+    </script>
+</body>
+</html>
