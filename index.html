@@ -3,80 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini IPTV - Local</title>
+    <title>Gemini IPTV Force</title>
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
     <style>
         :root { --primary: #ffc107; --bg: #000; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; text-align: center; }
-        .app-container { max-width: 500px; margin: 0 auto; }
-        .player-section { position: sticky; top: 0; z-index: 1000; background: #000; border-bottom: 2px solid #1a1a1a; }
-        .setup-bar { padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #111; }
-        .btn-file { background: #333; color: var(--primary); border: 2px dashed var(--primary); padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; display: block; }
-        #status { color: var(--primary); padding: 10px; font-weight: bold; }
+        .player-box { position: sticky; top: 0; z-index: 1000; background: #000; border-bottom: 2px solid #222; }
+        .controls { padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        input { background: #111; border: 1px solid #333; color: white; padding: 12px; border-radius: 8px; }
+        button { background: var(--primary); border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; color: #000; }
+        #status { color: var(--primary); font-size: 14px; margin: 5px; }
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; }
-        .card { background: #111; border-radius: 10px; padding: 12px 5px; border: 1px solid #222; font-size: 10px; min-height: 50px; display: flex; align-items: center; justify-content: center; }
+        .card { background: #111; border-radius: 10px; padding: 10px; border: 1px solid #222; font-size: 10px; height: 50px; display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
-    <div class="app-container">
-        <div class="player-section">
-            <video id="main-player" class="video-js vjs-16-9 vjs-big-play-centered" controls playsinline></video>
+    <div class="player-box">
+        <video id="main-player" class="video-js vjs-16-9 vjs-big-play-centered" controls playsinline></video>
+        <div class="controls">
+            <input type="text" id="url-m3u" placeholder="Cole seu link get.php aqui...">
+            <button onclick="forcarDownload()">BAIXAR E ATIVAR LISTA</button>
+            <div id="status">Aguardando comando...</div>
         </div>
-
-        <div class="setup-bar">
-            <label class="btn-file">
-                📁 CLIQUE AQUI PARA CARREGAR O ARQUIVO M3U
-                <input type="file" id="input-m3u" accept=".m3u,.php,.txt" style="display: none;" onchange="lerArquivo(this)">
-            </label>
-            <div id="status">Selecione a lista baixada</div>
-        </div>
-
-        <main id="channel-list" class="grid"></main>
     </div>
+
+    <div id="lista" class="grid"></div>
 
     <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
     <script>
         const player = videojs('main-player');
 
-        function lerArquivo(input) {
-            const file = input.files[0];
-            if (!file) return;
+        async function forcarDownload() {
+            const url = document.getElementById('url-m3u').value.trim();
+            if(!url) return alert("Cole o link!");
 
-            const reader = new FileReader();
-            document.getElementById('status').innerText = "Processando arquivo...";
+            const status = document.getElementById('status');
+            status.innerText = "⏳ Conectando ao servidor Olympus...";
             
-            reader.onload = function(e) {
-                const conteudo = e.target.result;
-                const linhas = conteudo.split('\n');
-                const canais = [];
+            // Usando proxy para burlar o download forçado e ler como texto
+            const proxy = "https://api.allorigins.win/raw?url=";
+            
+            try {
+                const response = await fetch(proxy + encodeURIComponent(url));
                 
-                for (let i = 0; i < linhas.length; i++) {
-                    if (linhas[i].includes('#EXTINF:')) {
-                        const nome = linhas[i].split(',').pop().trim();
-                        let link = linhas[i+1]?.trim();
-                        if(link && link.startsWith('http')) {
-                            canais.push({ nome, url: link });
+                // Criamos um leitor para processar o arquivo grande aos poucos
+                const reader = response.body.getReader();
+                let result = '';
+                let canais = [];
+                let count = 0;
+
+                status.innerText = "📥 Lendo dados (84MB)... aguarde";
+
+                while(true) {
+                    const {done, value} = await reader.read();
+                    if (done) break;
+                    
+                    result += new TextDecoder("utf-8").decode(value);
+                    
+                    // Processa o que já baixou para não travar
+                    if (result.includes('\n')) {
+                        const linhas = result.split('\n');
+                        result = linhas.pop(); // Guarda a última linha incompleta
+
+                        for (let i = 0; i < linhas.length; i++) {
+                            if (linhas[i].includes('#EXTINF:')) {
+                                const nome = linhas[i].split(',').pop().trim();
+                                const link = linhas[i+1]?.trim();
+                                if(link && link.startsWith('http')) {
+                                    canais.push({nome, link});
+                                    count++;
+                                }
+                            }
                         }
+                        status.innerText = "✅ " + count + " canais encontrados...";
+                        if(count > 2000) break; // Para assim que pegar os primeiros 2000 pra não travar seu celular
                     }
                 }
                 
-                exibirCanais(canais);
-            };
-            reader.readAsText(file);
+                renderizar(canais);
+                status.innerText = "🚀 Pronto! " + canais.length + " canais ativos.";
+
+            } catch (e) {
+                status.innerText = "❌ Erro ao baixar. Verifique se as TRAVAS do painel estão OFF.";
+            }
         }
 
-        function exibirCanais(lista) {
-            const container = document.getElementById('channel-list');
+        function renderizar(lista) {
+            const container = document.getElementById('lista');
             container.innerHTML = "";
-            document.getElementById('status').innerText = lista.length + " Canais Carregados!";
-            
             lista.forEach(c => {
                 const div = document.createElement('div');
                 div.className = 'card';
                 div.innerText = c.nome;
                 div.onclick = () => {
-                    player.src({ src: c.url, type: 'application/x-mpegURL' });
+                    player.src({ src: c.link, type: 'application/x-mpegURL' });
                     player.play();
                     window.scrollTo({top: 0, behavior: 'smooth'});
                 };
