@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini IPTV v12</title>
+    <title>Gemini IPTV - Multi Categorias</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         :root { --accent: #ffc107; --bg: #000; }
@@ -11,22 +11,24 @@
         .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
         .page.active { display: flex; }
         
-        /* Barra Amarela com Movimento */
+        /* Barra de Progresso Amarela */
         .sync-box { width: 85%; display: none; margin-top: 25px; text-align: center; }
         .p-bg { width: 100%; height: 14px; background: #222; border-radius: 10px; overflow: hidden; }
-        .p-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; box-shadow: 0 0 15px var(--accent); }
-        
-        .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; }
-        .cat-card { background: #111; border: 2px solid #222; border-radius: 15px; padding: 35px 5px; text-align: center; cursor: pointer; }
+        .p-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.1s; box-shadow: 0 0 15px var(--accent); }
 
+        /* Menu de Categorias */
+        .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 92%; }
+        .cat-card { background: #111; border: 2px solid #222; border-radius: 15px; padding: 35px 5px; text-align: center; cursor: pointer; }
+        .cat-card span { display: block; font-size: 12px; color: var(--accent); margin-top: 5px; }
+
+        /* Player e Lista */
         #player-box { display: none; width: 100%; height: 215px; background: #000; position: fixed; top: 0; z-index: 1000; border-bottom: 2px solid var(--accent); }
         video { width: 100%; height: 100%; }
-
         .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0a0a0a; z-index: 3000; transition: 0.3s; overflow-y: auto; }
         .sidebar.active { left: 0; }
         .chan-item { padding: 18px; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
 
-        #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 65px; height: 65px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 30px; color: #000; z-index: 4000; }
+        #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 60px; height: 60px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 30px; color: #000; z-index: 4000; }
         input { background: #111; border: 1px solid #333; color: white; padding: 15px; width: 80%; border-radius: 10px; margin-bottom: 15px; }
         .btn-sync { background: var(--accent); border: none; padding: 15px; border-radius: 10px; font-weight: bold; width: 85%; }
     </style>
@@ -35,19 +37,20 @@
 
     <div id="p-sync" class="page active">
         <h1 style="color: var(--accent);">GEMINI IPTV</h1>
-        <input type="text" id="url" placeholder="Link Olympus...">
-        <button class="btn-sync" id="btn-start" onclick="iniciar()">SINCRONIZAR</button>
+        <input type="text" id="url" placeholder="Link M3U Olympus...">
+        <button class="btn-sync" id="btn-start" onclick="sincronizar()">SINCRONIZAR LISTA</button>
         <div class="sync-box" id="s-box">
             <div class="p-bg"><div id="bar" class="p-fill"></div></div>
-            <p id="status" style="margin-top: 10px; color: var(--accent);">Capturando...</p>
+            <p id="status" style="margin-top: 10px; color: var(--accent);">Lendo dados...</p>
         </div>
     </div>
 
     <div id="p-menu" class="page">
+        <h2 style="margin-bottom: 25px;">Categorias Prontas</h2>
         <div class="cat-grid">
-            <div class="cat-card" onclick="irCanais()">📺<br>CANAIS</div>
-            <div class="cat-card" onclick="alert('Filmes em breve')">🎬<br>FILMES</div>
-            <div class="cat-card" onclick="alert('Séries em breve')">🍿<br>SÉRIES</div>
+            <div class="cat-card" onclick="mostrarLista('canais')">📺<br>CANAIS <span id="count-c">0</span></div>
+            <div class="cat-card" onclick="mostrarLista('filmes')">🎬<br>FILMES <span id="count-f">0</span></div>
+            <div class="cat-card" onclick="mostrarLista('series')">🍿<br>SÉRIES <span id="count-s">0</span></div>
             <div class="cat-card" onclick="location.reload()">🔄<br>SAIR</div>
         </div>
     </div>
@@ -55,15 +58,16 @@
     <div id="player-box"><video id="video" controls playsinline></video></div>
     <div id="fab" onclick="toggleSide()">☰</div>
     <div id="side" class="sidebar">
+        <div id="list-title" style="padding: 20px; background: #111; font-weight: bold; color: var(--accent);"></div>
         <div id="list-body"></div>
     </div>
 
     <script>
-        let canais = [];
+        let categorias = { canais: [], filmes: [], series: [] };
         const video = document.getElementById('video');
         let hls = new Hls();
 
-        async function iniciar() {
+        async function sincronizar() {
             const link = document.getElementById('url').value;
             if(!link) return;
 
@@ -78,14 +82,12 @@
                 const reader = response.body.getReader();
                 let decoder = new TextDecoder();
                 let accumulated = '';
+                let totalEncontrado = 0;
 
                 while(true) {
                     const {done, value} = await reader.read();
-                    // PARADA FORÇADA EM 2500 CANAIS PARA EVITAR TRAVAMENTO
-                    if(done || canais.length >= 2500) {
-                        if (reader) await reader.cancel(); 
-                        break;
-                    }
+                    // Limite de 5000 itens para estabilidade no Firefox móvel
+                    if(done || totalEncontrado >= 5000) break;
 
                     accumulated += decoder.decode(value, {stream: true});
                     let lines = accumulated.split('\n');
@@ -93,49 +95,62 @@
 
                     for(let i=0; i<lines.length; i++) {
                         if(lines[i].includes('#EXTINF:')) {
-                            const nome = lines[i].split(',').pop().trim();
+                            const nome = lines[i].split(',').pop().trim().toUpperCase();
                             const url = lines[i+1]?.trim();
                             if(url && url.startsWith('http')) {
-                                canais.push({nome, url});
-                                bar.style.width = Math.min((canais.length / 25), 100) + "%";
-                                status.innerText = "Canais: " + canais.length;
+                                totalEncontrado++;
+                                
+                                // Lógica de Separação
+                                if(nome.includes('SÉRIE') || nome.includes('SERIE') || nome.includes('S01') || nome.includes('S02')) {
+                                    categorias.series.push({nome, url});
+                                } else if(nome.includes('FILME') || nome.includes('2024') || nome.includes('2025') || url.includes('movie')) {
+                                    categorias.filmes.push({nome, url});
+                                } else {
+                                    categorias.canais.push({nome, url});
+                                }
+                                
+                                bar.style.width = Math.min((totalEncontrado / 50), 100) + "%";
+                                status.innerText = "Total capturado: " + totalEncontrado;
                             }
                         }
                     }
                 }
                 
-                // Força a transição de tela
-                bar.style.width = "100%";
-                status.innerText = "✅ Finalizado!";
+                // Atualiza contadores e muda de tela
+                document.getElementById('count-c').innerText = categorias.canais.length;
+                document.getElementById('count-f').innerText = categorias.filmes.length;
+                document.getElementById('count-s').innerText = categorias.series.length;
+                
                 setTimeout(() => {
                     document.getElementById('p-sync').classList.remove('active');
                     document.getElementById('p-menu').classList.add('active');
-                }, 800);
+                }, 1000);
 
-            } catch(e) { status.innerText = "Erro de conexão."; }
+            } catch(e) { status.innerText = "Erro no link ou travas."; }
         }
 
-        function play(url) {
-            if (hls) hls.destroy();
-            hls = new Hls();
-            hls.loadSource(url);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
-        }
-
-        function irCanais() {
+        function mostrarLista(tipo) {
             document.getElementById('p-menu').classList.remove('active');
             document.getElementById('player-box').style.display = 'block';
             document.getElementById('fab').style.display = 'flex';
-            const body = document.getElementById('list-body');
-            body.innerHTML = '<div style="padding:20px; background:#111; border-bottom:1px solid #222; color:#ffc107; font-weight:bold;">LISTA DE CANAIS</div>';
             
-            // Renderiza apenas os canais capturados
-            canais.forEach(c => {
+            const body = document.getElementById('list-body');
+            const title = document.getElementById('list-title');
+            body.innerHTML = "";
+            title.innerText = tipo.toUpperCase();
+
+            categorias[tipo].forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'chan-item';
-                div.innerText = "📺 " + c.nome;
-                div.onclick = () => { play(c.url); toggleSide(); };
+                div.innerText = "▶ " + item.nome;
+                div.onclick = () => {
+                    if (hls) hls.destroy();
+                    hls = new Hls();
+                    hls.loadSource(item.url);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+                    toggleSide();
+                };
                 body.appendChild(div);
             });
             toggleSide();
