@@ -9,23 +9,21 @@
         :root { --primary: #ffc107; --bg: #000; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; text-align: center; }
         #loading-screen { position: fixed; inset: 0; background: #000; z-index: 10000; display: none; flex-direction: column; align-items: center; justify-content: center; }
-        .progress-container { width: 80%; max-width: 300px; height: 10px; background: #222; border-radius: 10px; overflow: hidden; margin: 15px 0; border: 1px solid #333; }
-        #progress-bar { width: 0%; height: 100%; background: var(--primary); box-shadow: 0 0 15px var(--primary); transition: width 0.1s; }
-        .app-container { max-width: 500px; margin: 0 auto; }
+        .app-container { max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; min-height: 100vh; }
         .player-section { position: sticky; top: 0; z-index: 1000; background: #000; border-bottom: 2px solid #1a1a1a; }
+        #main-player { width: 100% !important; max-height: 220px; }
         .setup-bar { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
         input { background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 8px; outline: none; }
         button { background: var(--primary); border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; color: #000; }
         .channel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; }
-        .card { background: #111; border-radius: 10px; padding: 10px 5px; border: 1px solid #222; font-size: 10px; min-height: 50px; display: flex; align-items: center; justify-content: center; }
+        .card { background: #111; border-radius: 10px; padding: 10px 5px; border: 1px solid #222; font-size: 10px; min-height: 50px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div id="loading-screen">
-        <h2 style="color: var(--primary);">Sincronizando Olympus...</h2>
-        <div class="progress-container"><div id="progress-bar"></div></div>
-        <p id="contador" style="font-size: 35px; font-weight: bold;">0</p>
+        <h2 style="color: var(--primary);">Conectando à Olympus...</h2>
+        <p id="contador" style="font-size: 40px; font-weight: bold;">0</p>
         <p style="font-size: 12px; color: #888;">Removendo travas de conexão...</p>
     </div>
 
@@ -33,7 +31,7 @@
         <div class="player-section"><video id="main-player" class="video-js vjs-16-9 vjs-big-play-centered" controls playsinline></video></div>
         <div class="setup-bar">
             <input type="text" id="m3u-url" placeholder="Cole seu link get.php aqui...">
-            <button onclick="conectarServidor()">CONECTAR AGORA</button>
+            <button onclick="conectarServidor()">CARREGAR CANAIS</button>
         </div>
         <main id="channel-list" class="channel-grid"></main>
     </div>
@@ -47,7 +45,6 @@
             if(!url) return;
 
             document.getElementById('loading-screen').style.display = 'flex';
-            const bar = document.getElementById('progress-bar');
             const contDisplay = document.getElementById('contador');
 
             // Usando AllOrigins para burlar o bloqueio de navegador
@@ -57,7 +54,7 @@
                 const res = await fetch(proxy + encodeURIComponent(url));
                 const data = await res.text();
 
-                if(!data.includes("#EXTM3U")) throw new Error();
+                if(!data.includes("#EXTM3U")) throw new Error("BLOQUEIO");
 
                 const lines = data.split('\n');
                 const canais = [];
@@ -67,14 +64,10 @@
                     if (lines[i].includes('#EXTINF:')) {
                         const nome = lines[i].split(',').pop().trim();
                         let link = lines[i+1]?.trim();
-                        
                         if(link && link.startsWith('http')) {
                             canais.push({ nome, url: link });
                             count++;
-                            if(count % 10 === 0) {
-                                contDisplay.innerText = count;
-                                bar.style.width = Math.min(100, (i/lines.length)*100) + "%";
-                            }
+                            if(count % 10 === 0) contDisplay.innerText = count;
                         }
                     }
                 }
@@ -91,13 +84,14 @@
         function render(lista) {
             const container = document.getElementById('channel-list');
             container.innerHTML = "";
-            lista.slice(0, 600).forEach(c => {
+            lista.slice(0, 900).forEach(c => {
                 const div = document.createElement('div');
                 div.className = 'card';
                 div.innerText = c.nome;
                 div.onclick = () => {
                     player.src({ src: c.url, type: 'application/x-mpegURL' });
                     player.play();
+                    window.scrollTo({top: 0, behavior: 'smooth'});
                 };
                 container.appendChild(div);
             });
