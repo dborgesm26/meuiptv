@@ -7,39 +7,55 @@
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
     <style>
         :root { --primary: #ffc107; --bg: #000; }
-        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; text-align: center; }
+        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; text-align: center; overflow-x: hidden; }
         
-        /* NOVA TELA DE CARREGAMENTO PROFISSIONAL */
+        /* TELA DE CARREGAMENTO COM BARRA DE PROGRESSO */
         #loading-screen { 
-            position: fixed; inset: 0; background: rgba(0,0,0,0.95); 
+            position: fixed; inset: 0; background: #000; 
             z-index: 10000; display: none; flex-direction: column; 
             align-items: center; justify-content: center; 
         }
         .loader-gold { 
-            width: 60px; height: 60px; border: 5px solid #222; 
-            border-top: 5px solid var(--primary); border-radius: 50%; 
-            animation: spin 1s linear infinite; 
+            width: 50px; height: 50px; border: 4px solid #1a1a1a; 
+            border-top: 4px solid var(--primary); border-radius: 50%; 
+            animation: spin 1s linear infinite; margin-bottom: 20px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* ESTILO DA BARRA DE PROGRESSO */
+        .progress-container {
+            width: 80%; max-width: 300px; height: 8px;
+            background: #222; border-radius: 10px; overflow: hidden; margin: 15px 0;
+        }
+        #progress-bar {
+            width: 0%; height: 100%; background: var(--primary);
+            box-shadow: 0 0 10px var(--primary); transition: width 0.3s ease;
+        }
+
         .app-container { max-width: 500px; margin: 0 auto; }
-        .player-section { position: sticky; top: 0; z-index: 1000; background: #000; }
+        .player-section { position: sticky; top: 0; z-index: 1000; background: #000; border-bottom: 2px solid #1a1a1a; }
         .setup-bar { padding: 12px; display: flex; gap: 8px; }
-        input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 8px; }
-        button { background: var(--primary); border: none; padding: 10px 18px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 8px; outline: none; }
+        button { background: var(--primary); border: none; padding: 10px 18px; border-radius: 8px; font-weight: bold; cursor: pointer; color: #000; }
         
         .channel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; }
-        .card { background: #111; border-radius: 12px; padding: 10px; border: 1px solid #222; }
-        .card img { width: 50px; height: 50px; object-fit: contain; }
+        .card { background: #111; border-radius: 12px; padding: 12px 5px; border: 1px solid #222; cursor: pointer; }
+        .card:active { transform: scale(0.95); background: #1a1a1a; }
+        .card-name { font-size: 10px; height: 2.4em; overflow: hidden; color: #ccc; margin-top: 5px; }
     </style>
 </head>
 <body>
 
     <div id="loading-screen">
         <div class="loader-gold"></div>
-        <h2 style="color: var(--primary); margin-top: 20px;">Carregando Canais</h2>
-        <p id="contador-visual" style="font-size: 24px; font-weight: bold;">0</p>
-        <p style="color: #888;">Organizando sua lista premium...</p>
+        <h2 style="color: var(--primary); margin: 0;">Processando Lista</h2>
+        
+        <div class="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+        
+        <p id="contador-visual" style="font-size: 20px; font-weight: bold; margin: 5px 0;">0</p>
+        <p id="status-msg" style="color: #666; font-size: 12px;">Conectando ao servidor...</p>
     </div>
 
     <div class="app-container">
@@ -48,11 +64,11 @@
         </div>
 
         <div class="setup-bar">
-            <input type="text" id="m3u-url" placeholder="Cole o link .m3u aqui...">
-            <button onclick="dispararCarregamento()">CARREGAR</button>
+            <input type="text" id="m3u-url" placeholder="Link M3U aqui...">
+            <button onclick="iniciarFluxo()">CARREGAR</button>
         </div>
 
-        <h3 id="titulo-lista" style="color: var(--primary); margin-top: 15px;">Canais Disponíveis</h3>
+        <h3 id="titulo-lista" style="color: var(--primary); margin: 15px 0;">Canais Disponíveis</h3>
         <main id="channel-list" class="channel-grid"></main>
     </div>
 
@@ -60,79 +76,81 @@
     <script>
         const player = videojs('main-player');
 
-        // 1. FUNÇÃO QUE ATIVA A TELA DE CARREGAMENTO PRIMEIRO
-        function dispararCarregamento() {
+        function iniciarFluxo() {
             const url = document.getElementById('m3u-url').value.trim();
-            if(!url) return alert("Por favor, cole um link.");
+            if(!url) return alert("Cola o teu link primeiro!");
 
-            // Abre a nova tela
             document.getElementById('loading-screen').style.display = 'flex';
-            document.getElementById('contador-visual').innerText = "Iniciando...";
-
-            // Dá 100ms para o navegador desenhar a tela antes de começar o processamento pesado
-            setTimeout(() => {
-                carregarM3U(url);
-            }, 100);
+            document.getElementById('progress-bar').style.width = '5%';
+            
+            setTimeout(() => processarLista(url), 200);
         }
 
-        // 2. FUNÇÃO DE CAPTURA COM CONTADOR REAL
-        async function carregarM3U(url) {
-            const contadorEl = document.getElementById('contador-visual');
-            
+        async function processarLista(url) {
+            const bar = document.getElementById('progress-bar');
+            const cont = document.getElementById('contador-visual');
+            const msg = document.getElementById('status-msg');
+
             try {
                 const proxy = "https://api.allorigins.win/raw?url=";
                 const res = await fetch(proxy + encodeURIComponent(url));
-                const data = await res.text();
+                const text = await res.text();
+
+                if(!text.includes("#EXTM3U")) throw new Error();
+
+                const lines = text.split('\n');
+                const canaisFiltrados = [];
+                let encontrados = 0;
+
+                // Simulamos um progresso visual para listas muito rápidas
+                msg.innerText = "Lendo canais...";
                 
-                if(!data.includes("#EXTM3U")) {
-                    throw new Error("Lista inválida");
-                }
-
-                const lines = data.split('\n');
-                const canaisExtraidos = [];
-                let totalCanais = 0;
-
-                for (let i = 0; i < lines.length; i++) {
-                    if (lines[i].startsWith('#EXTINF:')) {
-                        let nome = lines[i].split(',').pop().trim();
-                        let link = lines[i+1]?.trim();
+                for(let i=0; i < lines.length; i++) {
+                    if(lines[i].startsWith('#EXTINF:')) {
+                        const nome = lines[i].split(',').pop().trim();
+                        const link = lines[i+1]?.trim();
                         
                         if(link && link.startsWith('http')) {
-                            canaisExtraidos.push({ nome, url: link });
-                            totalCanais++;
-
-                            // ATUALIZA O CONTADOR A CADA 50 CANAIS PARA NÃO TRAVAR
-                            if(totalCanais % 50 === 0) {
-                                contadorEl.innerText = totalCanais;
-                                // Pequena pausa técnica para atualizar o número na tela
-                                await new Promise(r => setTimeout(r, 0));
+                            canaisFiltrados.push({ nome, url: link });
+                            encontrados++;
+                            
+                            if(encontrados % 40 === 0) {
+                                cont.innerText = encontrados + " canais";
+                                // A barra vai até 90% durante o processamento
+                                let p = Math.min(90, (encontrados / 10)); 
+                                bar.style.width = p + "%";
+                                await new Promise(r => setTimeout(r, 1));
                             }
                         }
                     }
                 }
 
-                renderizarCanais(canaisExtraidos);
-                document.getElementById('titulo-lista').innerText = "Sua Lista (" + totalCanais + " canais)";
+                bar.style.width = "100%";
+                msg.innerText = "Finalizado!";
                 
-                // Fecha a tela de carregamento
-                document.getElementById('loading-screen').style.display = 'none';
+                setTimeout(() => {
+                    renderizar(canaisFiltrados);
+                    document.getElementById('titulo-lista').innerText = "Lista Carregada (" + encontrados + ")";
+                    document.getElementById('loading-screen').style.display = 'none';
+                }, 500);
 
             } catch(e) {
-                alert("Erro ao processar lista. Verifique o link.");
+                alert("Erro: O link não responde ou é inválido.");
                 document.getElementById('loading-screen').style.display = 'none';
             }
         }
 
-        function renderizarCanais(lista) {
+        function renderizar(lista) {
             const container = document.getElementById('channel-list');
             container.innerHTML = "";
-            lista.slice(0, 300).forEach(c => {
+            lista.slice(0, 400).forEach(c => {
                 const card = document.createElement('div');
                 card.className = 'card';
-                card.innerHTML = `<div style="font-size:10px;">${c.nome}</div>`;
+                card.innerHTML = `<div class="card-name">${c.nome}</div>`;
                 card.onclick = () => {
                     player.src({ src: c.url, type: 'application/x-mpegURL' });
                     player.play();
+                    window.scrollTo({top: 0, behavior: 'smooth'});
                 };
                 container.appendChild(card);
             });
