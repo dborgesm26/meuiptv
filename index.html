@@ -3,35 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini IBO Pro - Ultra Fast</title>
+    <title>Gemini IBO Ultimate</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        :root { --accent: #ffc107; --bg: #000; --card: #121212; }
+        :root { --accent: #ffc107; --bg: #000; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; overflow: hidden; }
         .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
         .page.active { display: flex; }
 
-        /* Login e Sincronismo */
+        /* Login IBO */
         .box { width: 90%; max-width: 400px; text-align: center; }
-        input { background: #1a1a1a; border: 1px solid #333; color: white; padding: 18px; width: 100%; border-radius: 12px; margin-bottom: 15px; box-sizing: border-box; }
+        input { background: #111; border: 1px solid #333; color: white; padding: 18px; width: 100%; border-radius: 12px; margin-bottom: 15px; box-sizing: border-box; }
         .btn { background: var(--accent); color: #000; border: none; padding: 18px; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; }
 
-        /* BARRA E CONTADOR */
-        .sync-area { width: 100%; display: none; margin-top: 30px; }
-        .bar-bg { width: 100%; height: 14px; background: #222; border-radius: 10px; overflow: hidden; }
+        /* BARRA DE PROGRESSO AMARELA */
+        .sync-area { width: 100%; display: none; margin-top: 25px; }
+        .bar-bg { width: 100%; height: 14px; background: #222; border-radius: 10px; overflow: hidden; border: 1px solid #333; }
         .bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.1s; box-shadow: 0 0 15px var(--accent); }
-        #status-txt { margin-top: 15px; color: var(--accent); font-weight: bold; font-size: 16px; }
+        #status-txt { margin-top: 15px; color: var(--accent); font-weight: bold; font-size: 16px; text-transform: uppercase; }
 
-        /* Dashboard */
+        /* Dashboard Categorias */
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 95%; }
-        .card { background: var(--card); border: 1px solid #222; border-radius: 15px; padding: 35px 10px; text-align: center; position: relative; }
+        .card { background: #111; border: 1px solid #222; border-radius: 15px; padding: 35px 10px; text-align: center; position: relative; }
         .badge { position: absolute; top: 10px; right: 10px; background: var(--accent); color: #000; font-size: 11px; padding: 3px 7px; border-radius: 5px; font-weight: bold; }
 
         /* Player */
         #player-ui { display: none; width: 100%; height: 230px; background: #000; position: fixed; top: 0; z-index: 1000; border-bottom: 2px solid var(--accent); }
         video { width: 100%; height: 100%; }
 
-        .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0a0a0a; z-index: 3000; transition: 0.3s; overflow-y: auto; }
+        /* Sidebar */
+        .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #080808; z-index: 3000; transition: 0.3s; overflow-y: auto; }
         .sidebar.active { left: 0; }
         .item { padding: 20px; border-bottom: 1px solid #111; font-size: 14px; color: #999; }
 
@@ -43,8 +44,8 @@
     <div id="p-sync" class="page active">
         <div class="box">
             <h1 style="color: var(--accent);">IBO PLAYER</h1>
-            <input type="text" id="iptv-url" placeholder="URL M3U Olympus">
-            <button class="btn" id="btn-go" onclick="turboSync()">CONECTAR E PROCESSAR</button>
+            <input type="text" id="iptv-url" placeholder="Link M3U Olympus">
+            <button class="btn" id="btn-go" onclick="turboSync()">CONECTAR AGORA</button>
             <div class="sync-area" id="loader">
                 <div class="bar-bg"><div id="bar" class="bar-fill"></div></div>
                 <div id="status-txt">Iniciando...</div>
@@ -54,19 +55,16 @@
 
     <div id="p-home" class="page">
         <div class="grid">
-            <div class="card" onclick="abrirCat('canais')"><div class="badge" id="c-c">0</div>📺<br>LIVE TV</div>
-            <div class="card" onclick="abrirCat('filmes')"><div class="badge" id="c-f">0</div>🎬<br>FILMES</div>
-            <div class="card" onclick="abrirCat('series')"><div class="badge" id="c-s">0</div>🍿<br>SÉRIES</div>
-            <div class="card" onclick="location.reload()">🔄<br>LOGOUT</div>
+            <div class="card" onclick="abrir('canais')"><div class="badge" id="c-c">0</div>📺<br>LIVE TV</div>
+            <div class="card" onclick="abrir('filmes')"><div class="badge" id="c-f">0</div>🎬<br>FILMES</div>
+            <div class="card" onclick="abrir('series')"><div class="badge" id="c-s">0</div>🍿<br>SÉRIES</div>
+            <div class="card" onclick="location.reload()">🔄<br>SAIR</div>
         </div>
     </div>
 
     <div id="player-ui"><video id="video" controls playsinline></video></div>
-    <div id="fab" onclick="toggleNav()">☰</div>
-    <div id="side" class="sidebar">
-        <div id="side-title" style="padding: 25px; background: #000; color: var(--accent); font-weight: bold; border-bottom: 1px solid #222;">LISTA</div>
-        <div id="list-container"></div>
-    </div>
+    <div id="fab" onclick="toggle()">☰</div>
+    <div id="side" class="sidebar"><div id="list-cont"></div></div>
 
     <script>
         let db = { canais: [], filmes: [], series: [] };
@@ -82,8 +80,12 @@
             const status = document.getElementById('status-txt');
 
             try {
+                // Alternância de Proxy para evitar "Erro ao ler lista"
                 const proxy = "https://api.allorigins.win/raw?url=";
                 const response = await fetch(proxy + encodeURIComponent(url));
+                
+                if (!response.ok) throw new Error();
+
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let acc = '';
@@ -107,25 +109,23 @@
                         else if(u.includes('movie') || nU.includes('FILME')) db.filmes.push({n, u});
                         else db.canais.push({n, u});
 
-                        // Barra amarela e contador em tempo real
                         bar.style.width = (total % 100) + "%";
                         status.innerText = "Capturando: " + total;
                         
-                        // Limpa o buffer para manter a velocidade
-                        if(total % 500 === 0) acc = acc.substring(m.index);
+                        if(total % 1000 === 0) acc = acc.substring(m.index);
                     }
                 }
                 
-                finalizar();
-            } catch(e) { status.innerText = "Erro ao ler lista."; }
-        }
+                document.getElementById('c-c').innerText = db.canais.length;
+                document.getElementById('c-f').innerText = db.filmes.length;
+                document.getElementById('c-s').innerText = db.series.length;
+                document.getElementById('p-sync').classList.remove('active');
+                document.getElementById('p-home').classList.add('active');
 
-        function finalizar() {
-            document.getElementById('c-c').innerText = db.canais.length;
-            document.getElementById('c-f').innerText = db.filmes.length;
-            document.getElementById('c-s').innerText = db.series.length;
-            document.getElementById('p-sync').classList.remove('active');
-            document.getElementById('p-home').classList.add('active');
+            } catch(e) { 
+                status.innerText = "ERRO: Tente novamente ou use Aba Privada."; 
+                document.getElementById('btn-go').style.display = 'block';
+            }
         }
 
         function play(u) {
@@ -137,22 +137,22 @@
             hls.on(Hls.Events.MANIFEST_PARSED, () => v.play());
         }
 
-        function abrirCat(cat) {
+        function abrir(cat) {
             document.getElementById('p-home').classList.remove('active');
             document.getElementById('fab').style.display = 'flex';
-            const cont = document.getElementById('list-container');
-            cont.innerHTML = "";
+            const cont = document.getElementById('list-cont');
+            cont.innerHTML = `<div style="padding:25px; background:#000; color:#ffc107; font-weight:bold; border-bottom:1px solid #222;">${cat.toUpperCase()}</div>`;
             db[cat].forEach(item => {
                 const d = document.createElement('div');
                 d.className = 'item';
                 d.innerText = "▶ " + item.n;
-                d.onclick = () => { play(item.u); toggleNav(); };
+                d.onclick = () => { play(item.u); toggle(); };
                 cont.appendChild(d);
             });
-            toggleNav();
+            toggle();
         }
 
-        function toggleNav() { document.getElementById('side').classList.toggle('active'); }
+        function toggle() { document.getElementById('side').classList.toggle('active'); }
     </script>
 </body>
 </html>
