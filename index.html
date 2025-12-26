@@ -3,32 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini IPTV - Multi Categorias</title>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <title>Gemini IPTV Gold v15</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/clappr-pip@latest/dist/clappr-pip.min.js"></script>
+
     <style>
         :root { --accent: #ffc107; --bg: #000; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; overflow: hidden; }
         .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
         .page.active { display: flex; }
         
-        /* Barra de Progresso Amarela */
+        /* Barra Amarela */
         .sync-box { width: 85%; display: none; margin-top: 25px; text-align: center; }
-        .p-bg { width: 100%; height: 14px; background: #222; border-radius: 10px; overflow: hidden; }
-        .p-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.1s; box-shadow: 0 0 15px var(--accent); }
+        .p-bg { width: 100%; height: 14px; background: #222; border-radius: 10px; border: 1px solid #333; overflow: hidden; }
+        .p-fill { height: 100%; background: var(--accent); width: 0%; box-shadow: 0 0 15px var(--accent); transition: width 0.1s; }
 
-        /* Menu de Categorias */
-        .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 92%; }
+        .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; }
         .cat-card { background: #111; border: 2px solid #222; border-radius: 15px; padding: 35px 5px; text-align: center; cursor: pointer; }
-        .cat-card span { display: block; font-size: 12px; color: var(--accent); margin-top: 5px; }
+        .cat-card span { font-size: 11px; color: var(--accent); display: block; margin-top: 5px; }
 
-        /* Player e Lista */
-        #player-box { display: none; width: 100%; height: 215px; background: #000; position: fixed; top: 0; z-index: 1000; border-bottom: 2px solid var(--accent); }
-        video { width: 100%; height: 100%; }
+        /* PLAYER CONTAINER */
+        #video-player { display: none; width: 100%; height: 230px; background: #000; position: fixed; top: 0; z-index: 1000; border-bottom: 2px solid var(--accent); }
+
         .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0a0a0a; z-index: 3000; transition: 0.3s; overflow-y: auto; }
         .sidebar.active { left: 0; }
-        .chan-item { padding: 18px; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
+        .chan-item { padding: 18px; border-bottom: 1px solid #1a1a1a; font-size: 13px; color: #ccc; }
+        .chan-item:active { background: #111; color: var(--accent); }
 
-        #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 60px; height: 60px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 30px; color: #000; z-index: 4000; }
+        #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 65px; height: 65px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 30px; color: #000; z-index: 4000; }
         input { background: #111; border: 1px solid #333; color: white; padding: 15px; width: 80%; border-radius: 10px; margin-bottom: 15px; }
         .btn-sync { background: var(--accent); border: none; padding: 15px; border-radius: 10px; font-weight: bold; width: 85%; }
     </style>
@@ -37,121 +40,127 @@
 
     <div id="p-sync" class="page active">
         <h1 style="color: var(--accent);">GEMINI IPTV</h1>
-        <input type="text" id="url" placeholder="Link M3U Olympus...">
-        <button class="btn-sync" id="btn-start" onclick="sincronizar()">SINCRONIZAR LISTA</button>
+        <input type="text" id="url" placeholder="Link M3U (Olympus)...">
+        <button class="btn-sync" id="b-start" onclick="processarTudo()">SINCRONIZAR TUDO</button>
         <div class="sync-box" id="s-box">
             <div class="p-bg"><div id="bar" class="p-fill"></div></div>
-            <p id="status" style="margin-top: 10px; color: var(--accent);">Lendo dados...</p>
+            <p id="status" style="margin-top: 10px; color: var(--accent);">Processando lista completa...</p>
         </div>
     </div>
 
     <div id="p-menu" class="page">
-        <h2 style="margin-bottom: 25px;">Categorias Prontas</h2>
         <div class="cat-grid">
-            <div class="cat-card" onclick="mostrarLista('canais')">📺<br>CANAIS <span id="count-c">0</span></div>
-            <div class="cat-card" onclick="mostrarLista('filmes')">🎬<br>FILMES <span id="count-f">0</span></div>
-            <div class="cat-card" onclick="mostrarLista('series')">🍿<br>SÉRIES <span id="count-s">0</span></div>
+            <div class="cat-card" onclick="abrir('canais')">📺<br>CANAIS <span id="c-c">0</span></div>
+            <div class="cat-card" onclick="abrir('filmes')">🎬<br>FILMES <span id="c-f">0</span></div>
+            <div class="cat-card" onclick="abrir('series')">🍿<br>SÉRIES <span id="c-s">0</span></div>
             <div class="cat-card" onclick="location.reload()">🔄<br>SAIR</div>
         </div>
     </div>
 
-    <div id="player-box"><video id="video" controls playsinline></video></div>
+    <div id="video-player"></div>
     <div id="fab" onclick="toggleSide()">☰</div>
     <div id="side" class="sidebar">
-        <div id="list-title" style="padding: 20px; background: #111; font-weight: bold; color: var(--accent);"></div>
+        <div id="side-title" style="padding: 20px; background: #000; color: var(--accent); font-weight: bold; border-bottom: 1px solid #222;">LISTA</div>
         <div id="list-body"></div>
     </div>
 
     <script>
-        let categorias = { canais: [], filmes: [], series: [] };
-        const video = document.getElementById('video');
-        let hls = new Hls();
+        let db = { canais: [], filmes: [], series: [] };
+        let player = null;
 
-        async function sincronizar() {
-            const link = document.getElementById('url').value;
-            if(!link) return;
+        async function processarTudo() {
+            const url = document.getElementById('url').value;
+            if(!url) return;
 
-            document.getElementById('btn-start').style.display = 'none';
+            document.getElementById('b-start').style.display = 'none';
             document.getElementById('s-box').style.display = 'block';
             const bar = document.getElementById('bar');
             const status = document.getElementById('status');
 
             try {
+                // Proxy para evitar bloqueio CORS
                 const proxy = "https://api.allorigins.win/raw?url=";
-                const response = await fetch(proxy + encodeURIComponent(link));
+                const response = await fetch(proxy + encodeURIComponent(url));
                 const reader = response.body.getReader();
-                let decoder = new TextDecoder();
-                let accumulated = '';
-                let totalEncontrado = 0;
+                const decoder = new TextDecoder();
+                let partial = '';
 
                 while(true) {
                     const {done, value} = await reader.read();
-                    // Limite de 5000 itens para estabilidade no Firefox móvel
-                    if(done || totalEncontrado >= 5000) break;
+                    if(done) break;
 
-                    accumulated += decoder.decode(value, {stream: true});
-                    let lines = accumulated.split('\n');
-                    accumulated = lines.pop();
+                    partial += decoder.decode(value, {stream: true});
+                    let lines = partial.split('\n');
+                    partial = lines.pop();
 
-                    for(let i=0; i<lines.length; i++) {
+                    for(let i=0; i < lines.length; i++) {
                         if(lines[i].includes('#EXTINF:')) {
-                            const nome = lines[i].split(',').pop().trim().toUpperCase();
-                            const url = lines[i+1]?.trim();
-                            if(url && url.startsWith('http')) {
-                                totalEncontrado++;
+                            const info = lines[i];
+                            const link = lines[i+1]?.trim();
+                            
+                            if(link && link.startsWith('http')) {
+                                const nome = info.split(',').pop().trim();
+                                const nomeUP = nome.toUpperCase();
                                 
-                                // Lógica de Separação
-                                if(nome.includes('SÉRIE') || nome.includes('SERIE') || nome.includes('S01') || nome.includes('S02')) {
-                                    categorias.series.push({nome, url});
-                                } else if(nome.includes('FILME') || nome.includes('2024') || nome.includes('2025') || url.includes('movie')) {
-                                    categorias.filmes.push({nome, url});
+                                // Organização por tipos de conteúdo
+                                if(nomeUP.includes('SÉRIE') || nomeUP.includes('SERIE') || link.includes('series')) {
+                                    db.series.push({n: nome, u: link});
+                                } else if(link.includes('movie') || nomeUP.includes('FILME') || nomeUP.includes('2024') || nomeUP.includes('2025')) {
+                                    db.filmes.push({n: nome, u: link});
                                 } else {
-                                    categorias.canais.push({nome, url});
+                                    db.canais.push({n: nome, u: link});
                                 }
                                 
-                                bar.style.width = Math.min((totalEncontrado / 50), 100) + "%";
-                                status.innerText = "Total capturado: " + totalEncontrado;
+                                // Barra infinita (simulada até terminar)
+                                let total = db.canais.length + db.filmes.length + db.series.length;
+                                bar.style.width = (total % 100) + "%";
+                                status.innerText = "Itens encontrados: " + total;
                             }
                         }
                     }
                 }
                 
-                // Atualiza contadores e muda de tela
-                document.getElementById('count-c').innerText = categorias.canais.length;
-                document.getElementById('count-f').innerText = categorias.filmes.length;
-                document.getElementById('count-s').innerText = categorias.series.length;
+                // Finalização
+                document.getElementById('c-c').innerText = db.canais.length;
+                document.getElementById('c-f').innerText = db.filmes.length;
+                document.getElementById('c-s').innerText = db.series.length;
                 
-                setTimeout(() => {
-                    document.getElementById('p-sync').classList.remove('active');
-                    document.getElementById('p-menu').classList.add('active');
-                }, 1000);
+                document.getElementById('p-sync').style.display = 'none';
+                document.getElementById('p-menu').style.display = 'flex';
 
-            } catch(e) { status.innerText = "Erro no link ou travas."; }
+            } catch(e) { status.innerText = "Erro na leitura."; }
         }
 
-        function mostrarLista(tipo) {
-            document.getElementById('p-menu').classList.remove('active');
-            document.getElementById('player-box').style.display = 'block';
-            document.getElementById('fab').style.display = 'flex';
-            
-            const body = document.getElementById('list-body');
-            const title = document.getElementById('list-title');
-            body.innerHTML = "";
-            title.innerText = tipo.toUpperCase();
+        function play(link) {
+            document.getElementById('video-player').style.display = 'block';
+            if (player) player.destroy();
 
-            categorias[tipo].forEach(item => {
+            player = new Clappr.Player({
+                source: link,
+                parentId: "#video-player",
+                width: '100%',
+                height: '100%',
+                autoPlay: true,
+                mimeType: "application/x-mpegURL", // Força suporte a Olympus/HLS
+                plugins: [ClapprPip],
+                playback: { playInline: true, hlsjsConfig: { enableWorker: true } }
+            });
+        }
+
+        function abrir(tipo) {
+            document.getElementById('p-menu').style.display = 'none';
+            document.getElementById('fab').style.display = 'flex';
+            document.getElementById('side-title').innerText = tipo.toUpperCase();
+            
+            const listBody = document.getElementById('list-body');
+            listBody.innerHTML = "";
+            
+            db[tipo].forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'chan-item';
-                div.innerText = "▶ " + item.nome;
-                div.onclick = () => {
-                    if (hls) hls.destroy();
-                    hls = new Hls();
-                    hls.loadSource(item.url);
-                    hls.attachMedia(video);
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
-                    toggleSide();
-                };
-                body.appendChild(div);
+                div.innerText = "▶ " + item.n;
+                div.onclick = () => { play(item.u); toggleSide(); };
+                listBody.appendChild(div);
             });
             toggleSide();
         }
