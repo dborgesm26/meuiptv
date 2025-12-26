@@ -3,49 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini IPTV - Internal Player</title>
-    
-    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
-    <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/videojs-http-streaming@3.10.0/dist/videojs-http-streaming.min.js"></script>
-
+    <title>Gemini IPTV - VLC Direct</title>
     <style>
         :root { --accent: #ffc107; --bg: #000; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; overflow: hidden; }
-        .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
+        .page { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
         .page.active { display: flex; }
         
-        /* Barra de Progresso Amarela */
-        .sync-box { width: 85%; display: none; margin-top: 20px; text-align: center; }
-        .p-bg { width: 100%; height: 12px; background: #222; border-radius: 6px; overflow: hidden; }
-        .p-fill { height: 100%; background: var(--accent); width: 0%; transition: 0.2s; }
+        /* Barra Amarela */
+        .sync-box { width: 85%; display: none; margin-top: 25px; }
+        .p-bg { width: 100%; height: 12px; background: #222; border-radius: 10px; overflow: hidden; }
+        .p-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.1s; }
 
         .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; }
-        .cat-card { background: #111; border: 2px solid #222; border-radius: 12px; padding: 35px 5px; text-align: center; cursor: pointer; }
+        .cat-card { background: #111; border: 2px solid #222; border-radius: 15px; padding: 40px 10px; cursor: pointer; font-weight: bold; }
 
-        /* PLAYER BOX - ESTILO VLC */
-        #player-box { display: none; width: 100%; background: #000; position: fixed; top: 0; z-index: 1000; border-bottom: 2px solid var(--accent); }
-        .video-js { width: 100% !important; height: 215px !important; }
+        /* Lista de Canais Full Screen */
+        #p-list { display: none; background: #000; height: 100vh; overflow-y: auto; padding-top: 70px; }
+        .header { position: fixed; top: 0; width: 100%; background: #111; padding: 20px; border-bottom: 2px solid var(--accent); z-index: 1000; }
+        .chan-item { padding: 20px; border-bottom: 1px solid #111; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+        .vlc-btn { background: #ffc107; color: #000; padding: 8px 15px; border-radius: 8px; font-weight: bold; font-size: 13px; }
 
-        .sidebar { position: fixed; left: -100%; top: 0; width: 85%; height: 100%; background: #0a0a0a; z-index: 3000; transition: 0.3s; overflow-y: auto; }
-        .sidebar.active { left: 0; }
-        .chan-item { padding: 18px; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
-
-        #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 65px; height: 65px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 30px; color: #000; z-index: 4000; }
-
-        input { background: #111; border: 1px solid #333; color: white; padding: 15px; width: 80%; border-radius: 10px; margin-bottom: 15px; }
-        .btn-sync { background: var(--accent); border: none; padding: 15px 30px; border-radius: 10px; font-weight: bold; width: 85%; }
+        input { background: #111; border: 1px solid #333; color: white; padding: 15px; width: 85%; border-radius: 10px; margin-bottom: 15px; }
+        .btn-sync { background: var(--accent); border: none; padding: 18px; border-radius: 12px; font-weight: bold; width: 85%; }
     </style>
 </head>
 <body>
 
     <div id="p-sync" class="page active">
         <h1 style="color: var(--accent);">GEMINI IPTV</h1>
-        <input type="text" id="url" placeholder="Cole o link Olympus aqui...">
-        <button class="btn-sync" id="b-start" onclick="fazerSync()">SINCRONIZAR</button>
+        <p style="color: #666;">Sincronização com Player Externo</p>
+        <input type="text" id="url" placeholder="Link Olympus...">
+        <button class="btn-sync" onclick="iniciarSinc()">SINCRONIZAR AGORA</button>
         <div class="sync-box" id="s-box">
             <div class="p-bg"><div id="bar" class="p-fill"></div></div>
-            <p id="status" style="margin-top: 10px; color: var(--accent);">Canais: 0</p>
+            <p id="count" style="margin-top: 10px; color: var(--accent);">0 Canais</p>
         </div>
     </div>
 
@@ -54,94 +46,92 @@
             <div class="cat-card" onclick="irCanais()">📺<br>CANAIS</div>
             <div class="cat-card" onclick="alert('Brevemente')">🎬<br>FILMES</div>
             <div class="cat-card" onclick="alert('Brevemente')">🍿<br>SÉRIES</div>
-            <div class="cat-card" onclick="location.reload()">🔄<br>SAIR</div>
+            <div class="cat-card" onclick="location.reload()">🔄<br>LOGOUT</div>
         </div>
     </div>
 
-    <div id="player-box">
-        <video id="v-player" class="video-js vjs-big-play-centered" controls playsinline preload="auto"></video>
-    </div>
-    
-    <div id="fab" onclick="toggleSide()">☰</div>
-    <div id="side" class="sidebar">
-        <div style="padding: 25px; border-bottom: 1px solid #222; background: #000;"><h3 style="color: var(--accent); margin: 0;">LISTA DE CANAIS</h3></div>
+    <div id="p-list">
+        <div class="header">
+            <span onclick="voltar()" style="position: absolute; left: 20px; color: var(--accent); font-weight: bold;">⬅ VOLTAR</span>
+            <span>LISTA DE CANAIS</span>
+        </div>
         <div id="list-body"></div>
     </div>
 
     <script>
         let canais = [];
-        let player = videojs('v-player');
 
-        async function fazerSync() {
-            const link = document.getElementById('url').value;
-            if(!link) return;
-            document.getElementById('b-start').style.display = 'none';
+        async function iniciarSinc() {
+            const url = document.getElementById('url').value;
+            if(!url) return;
             document.getElementById('s-box').style.display = 'block';
             const bar = document.getElementById('bar');
-            const status = document.getElementById('status');
+            const txt = document.getElementById('count');
 
             try {
                 const proxy = "https://api.allorigins.win/raw?url=";
-                const res = await fetch(proxy + encodeURIComponent(link));
+                const res = await fetch(proxy + encodeURIComponent(url));
                 const reader = res.body.getReader();
                 let decoder = new TextDecoder();
                 let full = '';
 
                 while(true) {
                     const {done, value} = await reader.read();
-                    if(done || canais.length >= 700) break;
+                    if(done || canais.length >= 800) break;
                     full += decoder.decode(value, {stream: true});
                     let lines = full.split('\n');
                     full = lines.pop();
                     for(let i=0; i<lines.length; i++) {
                         if(lines[i].includes('#EXTINF:')) {
                             const nome = lines[i].split(',').pop().trim();
-                            const url = lines[i+1]?.trim();
-                            if(url && url.startsWith('http')) {
-                                canais.push({nome, url});
-                                bar.style.width = (canais.length / 7) + "%";
-                                status.innerText = "Sincronizando: " + canais.length;
+                            const link = lines[i+1]?.trim();
+                            if(link && link.startsWith('http')) {
+                                canais.push({nome, link});
+                                bar.style.width = (canais.length / 8) + "%";
+                                txt.innerText = "Capturados: " + canais.length;
                             }
                         }
                     }
                 }
                 setTimeout(() => {
-                    document.getElementById('p-sync').style.display = 'none';
-                    document.getElementById('p-menu').style.display = 'flex';
-                }, 800);
-            } catch(e) { status.innerText = "Erro no link."; }
+                    document.getElementById('p-sync').classList.remove('active');
+                    document.getElementById('p-menu').classList.add('active');
+                }, 1000);
+            } catch(e) { txt.innerText = "Erro de conexão."; }
         }
 
-        function playCanal(url) {
-            document.getElementById('player-box').style.display = 'block';
-            player.src({
-                src: url,
-                type: 'video/mp2t' // Define que é o formato técnico da Olympus
-            });
-            player.ready(() => {
-                player.play().catch(() => {
-                    player.muted(true);
-                    player.play();
-                });
-            });
+        function abrirVLC(url) {
+            // Este é o protocolo que "acorda" o VLC no Android
+            // Ele tenta abrir diretamente o Stream sem descarregar
+            const vlcIntent = "intent://" + url.replace(/^https?:\/\//, "") + "#Intent;scheme=http;package=org.videolan.vlc;S.title=Canal%20Gemini;end";
+            
+            // Tenta abrir o VLC diretamente
+            window.location.href = vlcIntent;
+            
+            // Caso o telemóvel não reconheça o protocolo Intent, ele usa o link direto
+            setTimeout(() => {
+                window.location.href = url;
+            }, 1000);
         }
 
         function irCanais() {
-            document.getElementById('p-menu').style.display = 'none';
-            document.getElementById('fab').style.display = 'flex';
+            document.getElementById('p-menu').classList.remove('active');
+            document.getElementById('p-list').style.display = 'block';
             const body = document.getElementById('list-body');
             body.innerHTML = "";
             canais.forEach(c => {
-                const d = document.createElement('div');
-                d.className = 'chan-item';
-                d.innerText = "📺 " + c.nome;
-                d.onclick = () => { playCanal(c.url); toggleSide(); };
-                body.appendChild(d);
+                const div = document.createElement('div');
+                div.className = 'chan-item';
+                div.onclick = () => abrirVLC(c.link);
+                div.innerHTML = `<span>📺 ${c.nome}</span> <span class="vlc-btn">ASSISTIR</span>`;
+                body.appendChild(div);
             });
-            toggleSide();
         }
 
-        function toggleSide() { document.getElementById('side').classList.toggle('active'); }
+        function voltar() {
+            document.getElementById('p-list').style.display = 'none';
+            document.getElementById('p-menu').classList.add('active');
+        }
     </script>
 </body>
 </html>
