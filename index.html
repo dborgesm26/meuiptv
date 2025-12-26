@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini Smarters Pro</title>
+    <title>Smarters Pro Edition</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         :root { --accent: #ffc107; --bg: #0b162a; }
@@ -13,9 +13,9 @@
 
         /* Loader Smarters Style */
         #loader-box { width: 85%; display: none; margin-top: 40px; }
-        .bar-bg { width: 100%; height: 6px; background: #1a2a44; border-radius: 10px; overflow: hidden; }
-        .bar-fill { height: 100%; background: #fff; width: 0%; transition: width 0.1s; }
-        #status { margin-top: 15px; font-size: 18px; letter-spacing: 1px; }
+        .bar-bg { width: 100%; height: 8px; background: #1a2a44; border-radius: 10px; overflow: hidden; }
+        .bar-fill { height: 100%; background: #ffffff; width: 0%; transition: width 0.2s; box-shadow: 0 0 10px #fff; }
+        #status { margin-top: 15px; font-size: 16px; font-weight: bold; text-transform: uppercase; }
 
         /* Grid */
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; }
@@ -32,84 +32,104 @@
         .item { padding: 18px; border-bottom: 1px solid #162541; font-size: 14px; text-align: left; }
 
         #fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent); width: 65px; height: 65px; border-radius: 50%; display: none; align-items: center; justify-content: center; color: #000; font-size: 30px; z-index: 4000; }
-        input { background: #162541; border: 1px solid #1e3256; color: #fff; padding: 15px; width: 85%; border-radius: 8px; margin-bottom: 15px; }
-        .btn { background: #fff; color: #0b162a; border: none; padding: 15px; width: 85%; border-radius: 8px; font-weight: bold; }
+        input { background: #162541; border: 1px solid #1e3256; color: #fff; padding: 15px; width: 85%; border-radius: 8px; margin-bottom: 15px; outline: none; }
+        .btn { background: #ffffff; color: #0b162a; border: none; padding: 15px; width: 85%; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div id="p-sync" class="page active">
         <h2 style="margin-bottom: 30px;">SMARTERS <span style="color:var(--accent)">PRO</span></h2>
-        <input type="text" id="url" placeholder="M3U URL (Olympus)">
-        <button class="btn" onclick="turboSync()">DOWNLOAD PLAYLIST</button>
+        <input type="text" id="m3u-url" placeholder="Insira o Link M3U Olympus">
+        <button class="btn" id="btn-sync" onclick="turboDownload()">DOWNLOAD PLAYLIST</button>
+        
         <div id="loader-box">
             <p id="status">Downloading Your Playlist Content</p>
             <div class="bar-bg"><div id="bar" class="bar-fill"></div></div>
-            <p id="count" style="margin-top:10px; color:var(--accent)">0 items processed</p>
+            <p id="count" style="margin-top:15px; color:var(--accent); font-weight: bold;">0 items processed</p>
         </div>
     </div>
 
     <div id="p-home" class="page">
         <div class="grid">
-            <div class="card" onclick="openCat('canais')"><div class="badge" id="c1">0</div>📺<br>LIVE TV</div>
-            <div class="card" onclick="openCat('filmes')"><div class="badge" id="c2">0</div>🎬<br>MOVIES</div>
-            <div class="card" onclick="openCat('series')"><div class="badge" id="c3">0</div>🍿<br>SERIES</div>
+            <div class="card" onclick="listar('canais')"><div class="badge" id="c1">0</div>📺<br>LIVE TV</div>
+            <div class="card" onclick="listar('filmes')"><div class="badge" id="c2">0</div>🎬<br>MOVIES</div>
+            <div class="card" onclick="listar('series')"><div class="badge" id="c3">0</div>🍿<br>SERIES</div>
             <div class="card" onclick="location.reload()">🔄<br>LOGOUT</div>
         </div>
     </div>
 
     <div id="player-ui"><video id="video" controls playsinline></video></div>
     <div id="fab" onclick="toggleNav()">☰</div>
-    <div id="side" class="side"><div id="list" style="margin-top:20px"></div></div>
+    <div id="side" class="side"><div id="list-body" style="margin-top:20px"></div></div>
 
     <script>
         let db = { canais: [], filmes: [], series: [] };
         let hls = new Hls({ enableWorker: true });
 
-        async function turboSync() {
-            const url = document.getElementById('url').value;
+        async function turboDownload() {
+            const url = document.getElementById('m3u-url').value;
             if(!url) return;
+
+            document.getElementById('btn-sync').style.display = 'none';
             document.getElementById('loader-box').style.display = 'block';
-            
+            const bar = document.getElementById('bar');
+            const counter = document.getElementById('count');
+
             try {
+                // Proxy alternativo para evitar "Erro ao baixar lista"
                 const proxy = "https://api.allorigins.win/raw?url=";
                 const response = await fetch(proxy + encodeURIComponent(url));
-                const text = await response.text();
                 
-                const bar = document.getElementById('bar');
-                const countLbl = document.getElementById('count');
-                
-                // MECANISMO SMARTERS: Busca ultra rápida usando Regex Global
-                const regex = /#EXTINF:.*?,(.*?)\n(http.*?)(?=\n#|$)/g;
-                let m;
+                if (!response.ok) throw new Error();
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let acc = '';
                 let total = 0;
 
-                while ((m = regex.exec(text)) !== null) {
-                    total++;
-                    const n = m[1].trim();
-                    const u = m[2].trim();
-                    const nU = n.toUpperCase();
+                while(true) {
+                    const {done, value} = await reader.read();
+                    if(done) break;
 
-                    if(nU.includes('SERIE') || u.includes('series')) db.series.push({n, u});
-                    else if(u.includes('movie') || nU.includes('FILME')) db.filmes.push({n, u});
-                    else db.canais.push({n, u});
+                    acc += decoder.decode(value, {stream: true});
+                    const regex = /#EXTINF:.*?,(.*?)\n(http.*?)(?=\n#|$)/g;
+                    let m;
 
-                    if(total % 500 === 0) {
-                        bar.style.width = (total % 100) + "%";
-                        countLbl.innerText = total + " items processed";
+                    while ((m = regex.exec(acc)) !== null) {
+                        total++;
+                        const n = m[1].trim();
+                        const u = m[2].trim();
+                        const nU = n.toUpperCase();
+
+                        if(nU.includes('SERIE') || u.includes('series')) db.series.push({n, u});
+                        else if(u.includes('movie') || nU.includes('FILME')) db.filmes.push({n, u});
+                        else db.canais.push({n, u});
+
+                        // Atualização da barra e contador Smarters Style
+                        if(total % 200 === 0) {
+                            bar.style.width = (total % 100) + "%";
+                            counter.innerText = total + " items processed";
+                        }
                     }
+                    // Limpeza de buffer para manter a velocidade em arquivos grandes (84MB)
+                    if(total % 2000 === 0) acc = acc.substring(acc.lastIndexOf('\n'));
                 }
                 
-                document.getElementById('c1').innerText = db.canais.length;
-                document.getElementById('c2').innerText = db.filmes.length;
-                document.getElementById('c3').innerText = db.series.length;
-                
-                setTimeout(() => {
-                    document.getElementById('p-sync').classList.remove('active');
-                    document.getElementById('p-home').classList.add('active');
-                }, 500);
+                finalizarSync();
+            } catch(e) { 
+                alert("Falha no download. Verifique o link ou a conexão.");
+                document.getElementById('btn-sync').style.display = 'block';
+                document.getElementById('loader-box').style.display = 'none';
+            }
+        }
 
-            } catch(e) { alert("Error downloading playlist."); }
+        function finalizarSync() {
+            document.getElementById('c1').innerText = db.canais.length;
+            document.getElementById('c2').innerText = db.filmes.length;
+            document.getElementById('c3').innerText = db.series.length;
+            document.getElementById('p-sync').classList.remove('active');
+            document.getElementById('p-home').classList.add('active');
         }
 
         function play(u) {
@@ -121,18 +141,21 @@
             hls.on(Hls.Events.MANIFEST_PARSED, () => v.play());
         }
 
-        function openCat(cat) {
+        function listar(cat) {
             document.getElementById('p-home').classList.remove('active');
             document.getElementById('fab').style.display = 'flex';
-            const l = document.getElementById('list');
-            l.innerHTML = `<div style="padding:20px; font-weight:bold; border-bottom:1px solid #162541;">${cat.toUpperCase()}</div>`;
+            const l = document.getElementById('list-body');
+            l.innerHTML = `<div style="padding:20px; font-weight:bold; color:#ffc107; border-bottom:1px solid #162541;">${cat.toUpperCase()}</div>`;
+            
+            const frag = document.createDocumentFragment();
             db[cat].forEach(i => {
                 const d = document.createElement('div');
                 d.className = 'item';
                 d.innerText = "▶ " + i.n;
                 d.onclick = () => { play(i.u); toggleNav(); };
-                l.appendChild(d);
+                frag.appendChild(d);
             });
+            l.appendChild(frag);
             toggleNav();
         }
 
